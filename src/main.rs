@@ -27,7 +27,7 @@ async fn main() -> Result<(), reqwest::Error> {
         .find('"')
         .map(|n| n + start_api_key)
         .expect("Failed to find end of API key");
-    let full_api_key = &res[start_api_key..end_api_key]; // 3_PWTq_MK-V930M4hDLpcL_qqUx224X_zPBEZ8yJeX45RHI-uKWYQC5QadqeRIfQKB
+    let full_api_key = &res[start_api_key..end_api_key];
     println!("API Key = {full_api_key:?}");
 
     std::fs::write("./output.html", res).expect("Failed to write output");
