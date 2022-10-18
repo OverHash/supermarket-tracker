@@ -1,8 +1,12 @@
+use countdown::get_categories;
+
 const SITE_URL: &str = "https://www.countdown.co.nz";
 const BASE_URL: &str = "https://www.countdown.co.nz/api/v1/";
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
 
-async fn get_api_key(client: reqwest::Client) -> Result<String, reqwest::Error> {
+mod countdown;
+
+async fn get_api_key(client: &reqwest::Client) -> Result<String, reqwest::Error> {
     let html_res = client.get(SITE_URL).send().await?.text().await?;
 
     let start_api_key = html_res
@@ -25,6 +29,10 @@ async fn main() -> Result<(), reqwest::Error> {
             "accept-language",
             reqwest::header::HeaderValue::from_static("en-US,en;q=0.9"),
         );
+        default_headers.insert(
+            "x-requested-with",
+            reqwest::header::HeaderValue::from_static("OnlineShopping.WebApp"),
+        );
 
         reqwest::Client::builder()
             .user_agent(DEFAULT_USER_AGENT)
@@ -33,8 +41,15 @@ async fn main() -> Result<(), reqwest::Error> {
             .expect("Failed to create http client")
     };
 
-    let api_key = get_api_key(client).await?;
+    let api_key = get_api_key(&client).await?;
     println!("Retrieved API key: {api_key:?}");
+
+    // retrieve categories
+    let categories = get_categories(&client, BASE_URL).await?;
+    println!(
+        "{:?}",
+        categories.iter().map(|c| c.to_string()).collect::<Vec<_>>()
+    );
 
     Ok(())
 }
