@@ -1,7 +1,9 @@
 use countdown::get_categories;
 
+use crate::countdown::get_products;
+
 const SITE_URL: &str = "https://www.countdown.co.nz";
-const BASE_URL: &str = "https://www.countdown.co.nz/api/v1/";
+const BASE_URL: &str = "https://www.countdown.co.nz/api/v1";
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
 
 mod countdown;
@@ -50,6 +52,9 @@ async fn main() -> Result<(), reqwest::Error> {
         "{:?}",
         categories.iter().map(|c| c.to_string()).collect::<Vec<_>>()
     );
+
+    // retrieve products
+    let products = get_products(&client, BASE_URL).await?;
 
     Ok(())
 }
