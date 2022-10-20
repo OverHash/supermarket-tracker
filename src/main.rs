@@ -54,7 +54,19 @@ async fn main() -> Result<(), reqwest::Error> {
     );
 
     // retrieve products
-    let products = get_products(&client, BASE_URL).await?;
+    let mut current_page = Some(1);
+    let mut products = Vec::new();
+    while let Some(current) = current_page {
+        println!("Getting page {current}");
+        let res = get_products(&client, BASE_URL, current).await?;
+        current_page = res.next_page;
+        products.extend(res.products);
+    }
+    println!(
+        "{:?} with {} memory",
+        products.len(),
+        std::mem::size_of_val(&*products)
+    );
 
     Ok(())
 }

@@ -7,8 +7,10 @@ struct ProductsResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ProductsItemsResponse {
     items: Vec<SingleProductResponse>,
+    total_items: i32,
 }
 
 #[derive(Deserialize)]
@@ -35,19 +37,64 @@ struct ProductPrice {
     save_price: f32,
 }
 
-pub struct Product {}
+#[derive(Debug)]
+pub struct Product {
+    /// Then name of the product
+    name: String,
+    /// The barcode of the product
+    barcode: String,
+    /// The current price of the product, in cents.
+    per_unit_price: i32,
+}
+
+/// The size to query each page.
+const PAGE_SIZE: i32 = 120;
+
+/// The response for a request to browse the store.
+
+#[derive(Debug)]
+pub struct GetProductResponse {
+    /// The current page's products
+    pub products: Vec<Product>,
+    /// The next page number, or None if we have reached the end.
+    pub next_page: Option<i32>,
+}
 
 /// Retrieves a list of products
 ///
-/// Uses the /products?dasFilter=Department%3B%3Bfruit-veg%3Bfalse&target=browse endpoint.
-pub async fn get_products(client: &Client, base_url: &str) -> Result<Vec<Product>, reqwest::Error> {
+/// Uses the /products?target=browse endpoint.
+pub async fn get_products(
+    client: &Client,
+    base_url: &str,
+    page_number: i32,
+) -> Result<GetProductResponse, reqwest::Error> {
     let res: ProductsResponse = client
         .get(format!("{base_url}/products"))
-        .query(&[("size", "120"), ("target", "browse"), ("page", "1")])
+        .query(&[
+            ("size", PAGE_SIZE.to_string()),
+            ("target", String::from("browse")),
+            ("page", String::from("1")),
+        ])
         .send()
         .await?
         .json()
         .await?;
 
-    Ok(vec![])
+    let products = res
+        .products
+        .items
+        .into_iter()
+        .map(|p| Product {
+            name: p.name,
+            barcode: p.barcode,
+            per_unit_price: (p.price.sale_price * 100.0) as i32,
+        })
+        .collect::<Vec<Product>>();
+
+    let is_not_end = PAGE_SIZE * page_number > res.products.total_items && !products.is_empty();
+
+    Ok(GetProductResponse {
+        products,
+        next_page: (!is_not_end).then_some(page_number + 1),
+    })
 }
