@@ -62,11 +62,7 @@ async fn main() -> Result<(), reqwest::Error> {
         current_page = res.next_page;
         products.extend(res.products);
     }
-    println!(
-        "{:?} with {} memory",
-        products.len(),
-        std::mem::size_of_val(&*products)
-    );
+    println!("{:?} products were found", products.len(),);
 
     Ok(())
 }
