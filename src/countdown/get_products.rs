@@ -1,6 +1,8 @@
 use reqwest::Client;
 use serde::Deserialize;
 
+use super::get_categories::Category;
+
 #[derive(Deserialize)]
 struct ProductsResponse {
     products: ProductsItemsResponse,
@@ -9,24 +11,26 @@ struct ProductsResponse {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProductsItemsResponse {
-    items: Vec<SingleProductResponse>,
+    items: Vec<ItemResponse>,
     total_items: i32,
 }
 
 #[derive(Deserialize)]
-struct SingleProductResponse {
-    /// Always "Product"
-    #[serde(rename = "type")]
-    product_type: String,
-    /// A lowercase string representation of the product
-    name: String,
-    barcode: String,
-    variety: Option<String>,
-    brand: String,
-    slug: String,
-    sku: String,
-    unit: String,
-    price: ProductPrice,
+#[serde(tag = "type")]
+enum ItemResponse {
+    Product {
+        /// A lowercase string representation of the product
+        name: String,
+        barcode: String,
+        variety: Option<String>,
+        brand: String,
+        slug: String,
+        sku: String,
+        unit: String,
+        price: ProductPrice,
+    },
+    PromoTile {},
+    PromotionalCarousel {},
 }
 
 #[derive(Deserialize)]
@@ -39,10 +43,12 @@ struct ProductPrice {
 
 #[derive(Debug)]
 pub struct Product {
-    /// Then name of the product
+    /// Then name of the product.
     name: String,
-    /// The barcode of the product
+    /// The barcode of the product.
     barcode: String,
+    /// The sku of the product.
+    pub sku: String,
     /// The current price of the product, in cents.
     per_unit_price: i32,
 }
@@ -67,13 +73,18 @@ pub async fn get_products(
     client: &Client,
     base_url: &str,
     page_number: i32,
+    category: Option<&Category>,
 ) -> Result<GetProductResponse, reqwest::Error> {
     let res: ProductsResponse = client
         .get(format!("{base_url}/products"))
         .query(&[
-            ("size", PAGE_SIZE.to_string()),
-            ("target", String::from("browse")),
-            ("page", String::from("1")),
+            ("size", Some(PAGE_SIZE.to_string())),
+            ("target", Some(String::from("browse"))),
+            ("page", Some(page_number.to_string())),
+            (
+                "dasFilter",
+                category.map(|c| format!("Department;;{};false", c.url)),
+            ),
         ])
         .send()
         .await?
@@ -84,17 +95,27 @@ pub async fn get_products(
         .products
         .items
         .into_iter()
-        .map(|p| Product {
-            name: p.name,
-            barcode: p.barcode,
-            per_unit_price: (p.price.sale_price * 100.0) as i32,
+        .filter_map(|item| match item {
+            ItemResponse::Product {
+                name,
+                barcode,
+                price,
+                sku,
+                ..
+            } => Some(Product {
+                name,
+                barcode,
+                sku,
+                per_unit_price: (price.sale_price * 100.0) as i32,
+            }),
+            _ => None,
         })
         .collect::<Vec<Product>>();
 
-    let is_not_end = PAGE_SIZE * page_number > res.products.total_items && !products.is_empty();
+    let is_end = PAGE_SIZE * page_number > res.products.total_items || products.is_empty();
 
     Ok(GetProductResponse {
         products,
-        next_page: (!is_not_end).then_some(page_number + 1),
+        next_page: (!is_end).then_some(page_number + 1),
     })
 }

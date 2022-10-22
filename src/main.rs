@@ -1,4 +1,7 @@
-use countdown::get_categories;
+use std::collections::HashSet;
+
+use countdown::{get_categories, Category, Product};
+use tokio::task;
 
 use crate::countdown::get_products;
 
@@ -23,8 +26,32 @@ async fn get_api_key(client: &reqwest::Client) -> Result<String, reqwest::Error>
     Ok(String::from(&html_res[start_api_key..end_api_key]))
 }
 
+async fn get_all_products(
+    client: reqwest::Client,
+    category: Option<Category>,
+) -> Result<Vec<Product>, reqwest::Error> {
+    let mut current_page = Some(1);
+    let mut products = Vec::new();
+    while let Some(current) = current_page {
+        match &category {
+            Some(c) => println!("Getting page {current} for category {c}"),
+            None => println!("Getting page {current}"),
+        }
+
+        let res = get_products(&client, BASE_URL, current, category.as_ref()).await?;
+        current_page = res.next_page;
+        products.extend(res.products);
+
+        // give the API some time to rest
+        // so we don't get rate limited
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+
+    Ok(products)
+}
+
 #[tokio::main]
-async fn main() -> Result<(), reqwest::Error> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = {
         let mut default_headers = reqwest::header::HeaderMap::new();
         default_headers.insert(
@@ -53,16 +80,24 @@ async fn main() -> Result<(), reqwest::Error> {
         categories.iter().map(|c| c.to_string()).collect::<Vec<_>>()
     );
 
-    // retrieve products
-    let mut current_page = Some(1);
-    let mut products = Vec::new();
-    while let Some(current) = current_page {
-        println!("Getting page {current}");
-        let res = get_products(&client, BASE_URL, current).await?;
-        current_page = res.next_page;
-        products.extend(res.products);
-    }
-    println!("{:?} products were found", products.len(),);
+    // retrieve products from all categories concurrently
+    let category_retrieval = futures::future::join_all(
+        categories
+            .into_iter()
+            .map(|category| task::spawn(get_all_products(client.to_owned(), Some(category)))),
+    )
+    .await;
+
+    // transform into the sku's
+    let category_products = category_retrieval
+        .into_iter()
+        .map(|category_results| category_results.expect("Failed to get category"))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flatten()
+        .map(|product| product.sku)
+        .collect::<HashSet<_>>();
+    println!("{:?} unique products were found", category_products.len());
 
     Ok(())
 }

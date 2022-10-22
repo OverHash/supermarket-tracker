@@ -4,11 +4,12 @@ use reqwest::Client;
 use serde::Deserialize;
 
 /// Describes a category which can be searched
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Category {
     #[serde(rename = "label")]
-    name: String,
-    url: String,
+    pub name: String,
+    /// The url path to browse the category
+    pub url: String,
 }
 
 impl Display for Category {
