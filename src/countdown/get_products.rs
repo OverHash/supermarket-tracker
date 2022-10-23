@@ -1,56 +1,64 @@
 use reqwest::Client;
 use serde::Deserialize;
 
-use super::get_categories::Category;
+use super::{Category, Product};
 
+/// Describes the response returned by the /products endpoint.
 #[derive(Deserialize)]
 struct ProductsResponse {
+    /// All the items on the current page.
     products: ProductsItemsResponse,
 }
 
+/// Represents the inner products of a [`ProductsResponse`]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProductsItemsResponse {
+    /// All the items on the current page.
     items: Vec<ItemResponse>,
+    /// The total amount of items across all pages.
     total_items: i32,
 }
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
 enum ItemResponse {
+    /// A single product that can be purchased.
     Product {
         /// A lowercase string representation of the product
         name: String,
+        /// The GS1 barcode.
         barcode: String,
+        /// The variety of the product, if it has one.
         variety: Option<String>,
+        /// The brand type of the product.
         brand: String,
+        /// A URL slug representing the product.
         slug: String,
+        /// A unique store identifier ID.
         sku: String,
+        /// The type of unit when purchasing the product.
         unit: String,
+        /// The price of the product.
         price: ProductPrice,
     },
+    /// A promotional item
     PromoTile {},
+    /// A carousel item of products, usually contained within a group.
     PromotionalCarousel {},
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProductPrice {
+    /// The normal price of the product.
     original_price: f32,
+    /// The current price of the product.
+    ///
+    /// Equivalent to `original_price - save_price`.
     sale_price: f32,
+    /// The total amount on sale by purchasing this product.
     save_price: f32,
-}
-
-#[derive(Debug)]
-pub struct Product {
-    /// Then name of the product.
-    name: String,
-    /// The barcode of the product.
-    barcode: String,
-    /// The sku of the product.
-    pub sku: String,
-    /// The current price of the product, in cents.
-    per_unit_price: i32,
 }
 
 /// The size to query each page.
@@ -106,6 +114,7 @@ pub async fn get_products(
                 name,
                 barcode,
                 sku,
+                // convert to cents from dollars
                 per_unit_price: (price.sale_price * 100.0) as i32,
             }),
             _ => None,

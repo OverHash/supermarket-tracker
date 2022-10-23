@@ -11,6 +11,7 @@ const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Appl
 
 mod countdown;
 
+/// Retrieves the API key to use for future requests by scraping the HTML response.
 async fn get_api_key(client: &reqwest::Client) -> Result<String, reqwest::Error> {
     let html_res = client.get(SITE_URL).send().await?.text().await?;
 
@@ -26,19 +27,19 @@ async fn get_api_key(client: &reqwest::Client) -> Result<String, reqwest::Error>
     Ok(String::from(&html_res[start_api_key..end_api_key]))
 }
 
+/// Retrieves all the products for a given category.
+///
+/// Yields for 500ms between requests, to prevent rate-limiting.
 async fn get_all_products(
     client: reqwest::Client,
-    category: Option<Category>,
+    category: Category,
 ) -> Result<Vec<Product>, reqwest::Error> {
     let mut current_page = Some(1);
     let mut products = Vec::new();
     while let Some(current) = current_page {
-        match &category {
-            Some(c) => println!("Getting page {current} for category {c}"),
-            None => println!("Getting page {current}"),
-        }
+        println!("Getting page {current} for category {category}");
 
-        let res = get_products(&client, BASE_URL, current, category.as_ref()).await?;
+        let res = get_products(&client, BASE_URL, current, Some(&category)).await?;
         current_page = res.next_page;
         products.extend(res.products);
 
@@ -77,14 +78,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let categories = get_categories(&client, BASE_URL).await?;
     println!(
         "{:?}",
-        categories.iter().map(|c| c.to_string()).collect::<Vec<_>>()
+        categories
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
     );
 
     // retrieve products from all categories concurrently
     let category_retrieval = futures::future::join_all(
         categories
             .into_iter()
-            .map(|category| task::spawn(get_all_products(client.to_owned(), Some(category)))),
+            .map(|category| task::spawn(get_all_products(client.clone(), category))),
     )
     .await;
 
