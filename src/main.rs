@@ -5,27 +5,10 @@ use tokio::task;
 
 use crate::countdown::get_products;
 
-const SITE_URL: &str = "https://www.countdown.co.nz";
 const BASE_URL: &str = "https://www.countdown.co.nz/api/v1";
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
 
 mod countdown;
-
-/// Retrieves the API key to use for future requests by scraping the HTML response.
-async fn get_api_key(client: &reqwest::Client) -> Result<String, reqwest::Error> {
-    let html_res = client.get(SITE_URL).send().await?.text().await?;
-
-    let start_api_key = html_res
-        .find("apikey=")
-        .expect("Failed to find start of API key")
-        + "apikey=".len();
-    let end_api_key = html_res[start_api_key..]
-        .find('"')
-        .map(|n| n + start_api_key)
-        .expect("Failed to find end of API key");
-
-    Ok(String::from(&html_res[start_api_key..end_api_key]))
-}
 
 /// Retrieves all the products for a given category.
 ///
@@ -70,9 +53,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build()
             .expect("Failed to create http client")
     };
-
-    let api_key = get_api_key(&client).await?;
-    println!("Retrieved API key: {api_key:?}");
 
     // retrieve categories
     let categories = get_categories(&client, BASE_URL).await?;
