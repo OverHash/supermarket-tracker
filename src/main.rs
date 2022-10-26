@@ -1,14 +1,18 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, env};
 
 use countdown::{get_categories, Category, Product};
+use dotenvy::dotenv;
+use sqlx::postgres::PgPoolOptions;
 use tokio::task;
 
 use crate::countdown::get_products;
+use crate::initialize_database::initialize_database;
 
 const BASE_URL: &str = "https://www.countdown.co.nz/api/v1";
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
 
 mod countdown;
+mod initialize_database;
 
 /// Retrieves all the products for a given category.
 ///
@@ -36,6 +40,9 @@ async fn get_all_products(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // ignore any error attempting to load .env file
+    dotenv().ok();
+
     let client = {
         let mut default_headers = reqwest::header::HeaderMap::new();
         default_headers.insert(
@@ -53,6 +60,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build()
             .expect("Failed to create http client")
     };
+
+    // connect to database
+    let connection = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(
+            &env::var("DATABASE_URL").expect("Failed to read DATABASE_URL environment variable"),
+        )
+        .await?;
+    initialize_database(&connection).await?;
 
     // retrieve categories
     let categories = get_categories(&client, BASE_URL).await?;
