@@ -1,8 +1,9 @@
-use std::{collections::HashSet, env};
+use std::env;
 
 use countdown::{get_categories, Category, Product};
 use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::Row;
 use tokio::task;
 
 use crate::countdown::get_products;
@@ -92,12 +93,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let category_products = category_retrieval
         .into_iter()
         .map(|category_results| category_results.expect("Failed to get category"))
-        .collect::<Result<Vec<_>, _>>()?
+        .collect::<Result<Vec<Vec<Product>>, _>>()?
         .into_iter()
         .flatten()
-        .map(|product| product.sku)
-        .collect::<HashSet<_>>();
-    println!("{:?} unique products were found", category_products.len());
+        .collect::<Vec<_>>();
+    println!("{:?} products were found", category_products.len());
+
+    // cache the result
+    // todo
+
+    // create the products if not existing before
+    {
+        let mut names = Vec::with_capacity(category_products.len());
+        let mut barcodes = Vec::with_capacity(category_products.len());
+        let mut skus = Vec::with_capacity(category_products.len());
+
+        category_products.into_iter().for_each(|p| {
+            names.push(p.name);
+            barcodes.push(p.barcode);
+            skus.push(p.sku);
+        });
+
+        let inserted_names = sqlx::query(
+            r#"INSERT INTO countdown_products (
+				name, barcode, sku
+			) SELECT * FROM UNNEST($1, $2, $3)
+			WHERE NOT EXISTS(
+				SELECT name FROM countdown_products WHERE name = $1
+			)
+			RETURNING name
+		"#,
+        )
+        .bind(&names)
+        .bind(&barcodes)
+        .bind(&skus)
+        .map(|row| {
+            let name: String = row.get(0);
+            name
+        })
+        .fetch_all(&connection)
+        .await?;
+
+        println!("Inserted {} names", inserted_names.len());
+    }
 
     Ok(())
 }
