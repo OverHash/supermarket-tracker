@@ -159,5 +159,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .execute(&connection)
     .await?;
 
+    println!("Found {product_count} new products");
+
     Ok(())
 }
