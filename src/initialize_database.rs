@@ -9,7 +9,7 @@ pub async fn initialize_database(conn: &Pool<Postgres>) -> Result<(), Box<dyn Er
 		id SERIAL PRIMARY KEY,
 		name VARCHAR(255) NOT NULL,
 		barcode VARCHAR(13) NOT NULL,
-		sku VARCHAR(10) NOT NULL
+		sku VARCHAR(10) NOT NULL UNIQUE
 	)"#,
     )
     .execute(conn)

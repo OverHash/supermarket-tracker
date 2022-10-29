@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 
 use countdown::{get_categories, Category, Product};
@@ -103,39 +104,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // todo
 
     // create the products if not existing before
-    {
-        let mut names = Vec::with_capacity(category_products.len());
-        let mut barcodes = Vec::with_capacity(category_products.len());
-        let mut skus = Vec::with_capacity(category_products.len());
+    let new_products_ids = {
+        let mut names: Vec<&str> = Vec::with_capacity(category_products.len());
+        let mut barcodes: Vec<&str> = Vec::with_capacity(category_products.len());
+        let mut skus: Vec<&str> = Vec::with_capacity(category_products.len());
 
-        category_products.into_iter().for_each(|p| {
-            names.push(p.name);
-            barcodes.push(p.barcode);
-            skus.push(p.sku);
+        category_products.iter().for_each(|p| {
+            names.push(&p.name);
+            barcodes.push(&p.barcode);
+            skus.push(&p.sku);
         });
 
-        let inserted_names = sqlx::query(
+        sqlx::query(
             r#"INSERT INTO countdown_products (
 				name, barcode, sku
 			) SELECT * FROM UNNEST($1, $2, $3)
-			WHERE NOT EXISTS(
-				SELECT name FROM countdown_products WHERE name = $1
-			)
-			RETURNING name
+			ON CONFLICT (sku) DO NOTHING
+			RETURNING sku, id
 		"#,
         )
-        .bind(&names)
-        .bind(&barcodes)
-        .bind(&skus)
+        .bind(names)
+        .bind(barcodes)
+        .bind(skus)
         .map(|row| {
-            let name: String = row.get(0);
-            name
+            let sku: String = row.get(0);
+            let id: i32 = row.get(1);
+
+            (sku, id)
         })
         .fetch_all(&connection)
-        .await?;
+        .await?
+    };
 
-        println!("Inserted {} names", inserted_names.len());
-    }
+    let product_count = new_products_ids.len();
+    // Map<sku, countdown_id>
+    let mut new_skus = new_products_ids.into_iter().fold(
+        HashMap::with_capacity(product_count),
+        |mut map, (sku, countdown_id)| {
+            map.insert(sku, countdown_id);
+            map
+        },
+    );
+
+    let new_products = category_products
+        .iter()
+        .filter_map(|p| new_skus.remove(&p.sku))
+        .collect::<Vec<_>>();
+    sqlx::query(
+        r#"INSERT INTO PRODUCTS (
+			countdown_id	
+		) SELECT * FROM UNNEST($1)"#,
+    )
+    .bind(new_products)
+    .execute(&connection)
+    .await?;
 
     Ok(())
 }
