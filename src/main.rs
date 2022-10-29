@@ -3,7 +3,7 @@ use std::env;
 
 use countdown::{get_categories, Category, Product};
 use dotenvy::dotenv;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::Row;
 use tokio::task;
 
@@ -70,9 +70,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &env::var("DATABASE_URL").expect("Failed to read DATABASE_URL environment variable"),
         )
         .await?;
+    println!("Connected to database");
     initialize_database(&connection).await?;
 
     // retrieve categories
+    println!("Retrieving all categories...");
     let categories = get_categories(&client, BASE_URL).await?;
     println!(
         "{:?}",
@@ -160,6 +162,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     println!("Found {product_count} new products");
+
+    // upload all price data
+    {
+        let mapped_product_ids = sqlx::query(
+            r#"SELECT products.id, countdown_products.sku FROM products
+			INNER JOIN countdown_products
+			ON products.countdown_id = countdown_products.id
+			WHERE countdown_id IS NOT NULL"#,
+        )
+        .map(|row: PgRow| {
+            let id: i32 = row.get(0);
+            let sku: String = row.get(1);
+
+            (id, sku)
+        })
+        .fetch_all(&connection)
+        .await?;
+
+        let mut product_ids = Vec::with_capacity(category_products.len());
+        let mut cost_in_cents = Vec::with_capacity(category_products.len());
+        let mut supermarket = Vec::with_capacity(category_products.len());
+
+        let mut mapped_products = HashMap::with_capacity(mapped_product_ids.len());
+        category_products.iter().for_each(|product| {
+            mapped_products.insert(&product.sku, product.per_unit_price);
+        });
+
+        for (product_id, sku) in mapped_product_ids {
+            let product_cost = mapped_products.remove(&sku);
+
+            // find the product
+            match product_cost {
+                Some(cost) => {
+                    product_ids.push(product_id);
+                    cost_in_cents.push(cost);
+                    supermarket.push("countdown");
+                }
+                None => println!("Failed to find product with sku {sku}"),
+            }
+        }
+
+        // now insert the row
+        sqlx::query(
+            "INSERT INTO prices (
+			product_id,
+			cost_in_cents,
+			supermarket
+		) SELECT * FROM UNNEST($1, $2, $3)",
+        )
+        .bind(&product_ids)
+        .bind(&cost_in_cents)
+        .bind(&supermarket)
+        .execute(&connection)
+        .await?;
+
+        if !mapped_products.is_empty() {
+            println!(
+                "Failed to find {} products inserted in database",
+                mapped_products.len()
+            );
+        }
+
+        println!("Inserted {} prices", product_ids.len());
+    }
 
     Ok(())
 }

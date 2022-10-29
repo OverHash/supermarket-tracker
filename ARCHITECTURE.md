@@ -14,20 +14,18 @@ Running a Postgres instance with the following tables:
 countdown_products
 ------------------
 CREATE TABLE countdown_products (
-	id INTEGER,
-	sku VARCHAR(10) NOT NULL,
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
 	barcode VARCHAR(13) NOT NULL,
-
-	PRIMARY KEY(id)
+	sku VARCHAR(10) NOT NULL UNIQUE,
 )
 
 products
 --------
 CREATE TABLE products (
-	id INTEGER,
+	id SERIAL PRIMARY KEY,
 	countdown_id INT,
 
-	PRIMARY KEY(id),
 	CONSTRAINT fk_countdown_product
 		FOREIGN KEY(countdown_id)
 			REFERENCES countdown_products(id)
@@ -36,7 +34,7 @@ CREATE TABLE products (
 prices
 ------
 CREATE TABLE PRICES (
-	id INTEGER,
+	id SERIAL PRIMARY KEY,
 	product_id INTEGER NOT NULL,
 	time TIMESTAMPTZ NOT NULL,
 	cost_in_cents INTEGER NOT NULL,
