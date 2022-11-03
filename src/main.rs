@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::env;
+use std::{env, fs};
 
 use countdown::{get_categories, Category, Product};
 use dotenvy::dotenv;
@@ -12,6 +12,7 @@ use crate::initialize_database::initialize_database;
 
 const BASE_URL: &str = "https://www.countdown.co.nz/api/v1";
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
+const CACHE_PATH: &str = "cache.json";
 
 mod countdown;
 mod initialize_database;
@@ -103,7 +104,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?} products were found", category_products.len());
 
     // cache the result
-    // todo
+    fs::write(
+        CACHE_PATH,
+        serde_json::to_string_pretty(&category_products)?,
+    )?;
 
     // create the products if not existing before
     let new_products_ids = {
@@ -206,10 +210,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // now insert the row
         sqlx::query(
             "INSERT INTO prices (
-			product_id,
-			cost_in_cents,
-			supermarket
-		) SELECT * FROM UNNEST($1, $2, $3)",
+            product_id,
+            cost_in_cents,
+            supermarket
+        ) SELECT * FROM UNNEST($1, $2, $3)",
         )
         .bind(&product_ids)
         .bind(&cost_in_cents)
