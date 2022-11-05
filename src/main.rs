@@ -193,7 +193,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             mapped_products.insert(&product.sku, product.per_unit_price);
         });
 
+        let mut lost_skus = vec![];
         for (product_id, sku) in mapped_product_ids {
+            // retrieve the cost associated with this sku
             let product_cost = mapped_products.remove(&sku);
 
             // find the product
@@ -203,9 +205,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     cost_in_cents.push(cost);
                     supermarket.push("countdown");
                 }
-                None => println!("Failed to find product with sku {sku}"),
+                None => lost_skus.push(sku),
             }
         }
+
+        println!(
+            "Failed to find {} skus, items were removed from the store",
+            lost_skus.len()
+        );
 
         // now insert the row
         sqlx::query(
