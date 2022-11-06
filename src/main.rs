@@ -27,7 +27,7 @@ async fn get_all_products(
     let mut current_page = Some(1);
     let mut products = Vec::new();
     while let Some(current) = current_page {
-        println!("Getting page {current} for category {category}");
+        eprintln!("Getting page {current} for category {category}");
 
         let res = get_products(&client, BASE_URL, current, Some(&category)).await?;
         current_page = res.next_page;
@@ -209,6 +209,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
+        if !mapped_products.is_empty() {
+            println!(
+                "Failed to find {} products inserted in database",
+                mapped_products.len()
+            );
+        }
+
         println!(
             "Failed to find {} skus, items were removed from the store",
             lost_skus.len()
@@ -235,13 +242,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Inserted {} prices", product_ids.len());
         } else {
             println!("Skipped inserting prices into database");
-        }
-
-        if !mapped_products.is_empty() {
-            println!(
-                "Failed to find {} products inserted in database",
-                mapped_products.len()
-            );
         }
     }
 
