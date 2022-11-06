@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::{env, fs};
 
 use countdown::{get_categories, Category, Product};
@@ -214,19 +214,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             lost_skus.len()
         );
 
-        // now insert the row
-        sqlx::query(
-            "INSERT INTO prices (
-            product_id,
-            cost_in_cents,
-            supermarket
-        ) SELECT * FROM UNNEST($1, $2, $3)",
-        )
-        .bind(&product_ids)
-        .bind(&cost_in_cents)
-        .bind(&supermarket)
-        .execute(&connection)
-        .await?;
+        // check --no-insert arg
+        let args = env::args().skip(1).collect::<HashSet<_>>();
+
+        if !args.contains("--no-insert") {
+            // now insert the rows
+            sqlx::query(
+                "INSERT INTO prices (
+				product_id,
+				cost_in_cents,
+				supermarket
+			) SELECT * FROM UNNEST($1, $2, $3)",
+            )
+            .bind(&product_ids)
+            .bind(&cost_in_cents)
+            .bind(&supermarket)
+            .execute(&connection)
+            .await?;
+
+            println!("Inserted {} prices", product_ids.len());
+        } else {
+            println!("Skipped inserting prices into database");
+        }
 
         if !mapped_products.is_empty() {
             println!(
@@ -234,8 +243,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 mapped_products.len()
             );
         }
-
-        println!("Inserted {} prices", product_ids.len());
     }
 
     Ok(())
