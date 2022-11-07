@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 use std::{env, fs};
 
 use countdown::{get_categories, Category, Product};
@@ -13,6 +14,8 @@ use crate::initialize_database::initialize_database;
 const BASE_URL: &str = "https://www.countdown.co.nz/api/v1";
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
 const CACHE_PATH: &str = "cache.json";
+/// The amount of milliseconds to wait between performing iterations on the pages.
+const PAGE_ITERATION_INTERVAL: Duration = Duration::from_millis(500);
 
 mod countdown;
 mod initialize_database;
@@ -35,7 +38,7 @@ async fn get_all_products(
 
         // give the API some time to rest
         // so we don't get rate limited
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        tokio::time::sleep(PAGE_ITERATION_INTERVAL).await;
     }
 
     Ok(products)
