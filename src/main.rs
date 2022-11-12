@@ -49,6 +49,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ignore any error attempting to load .env file
     dotenv().ok();
 
+    let args = env::args().skip(1).collect::<HashSet<_>>();
+    let no_insert = args.contains("--no-insert");
+
     let client = {
         let mut default_headers = reqwest::header::HeaderMap::new();
         default_headers.insert(
@@ -113,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // create the products if not existing before
-    let new_products_ids = {
+    let new_products_ids = if !no_insert {
         let mut names: Vec<&str> = Vec::with_capacity(category_products.len());
         let mut barcodes: Vec<&str> = Vec::with_capacity(category_products.len());
         let mut skus: Vec<&str> = Vec::with_capacity(category_products.len());
@@ -143,6 +146,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .fetch_all(&connection)
         .await?
+    } else {
+        vec![]
     };
 
     let product_count = new_products_ids.len();
@@ -155,20 +160,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     );
 
-    let new_products = category_products
-        .iter()
-        .filter_map(|p| new_skus.remove(&p.sku))
-        .collect::<Vec<_>>();
-    sqlx::query(
-        r#"INSERT INTO PRODUCTS (
+    if !no_insert {
+        let new_products = category_products
+            .iter()
+            .filter_map(|p| new_skus.remove(&p.sku))
+            .collect::<Vec<_>>();
+        sqlx::query(
+            r#"INSERT INTO PRODUCTS (
 			countdown_id	
 		) SELECT * FROM UNNEST($1)"#,
-    )
-    .bind(new_products)
-    .execute(&connection)
-    .await?;
+        )
+        .bind(new_products)
+        .execute(&connection)
+        .await?;
 
-    println!("Found {product_count} new products");
+        println!("Found {product_count} new products");
+    }
 
     // upload all price data
     {
@@ -224,10 +231,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             lost_skus.len()
         );
 
-        // check --no-insert arg
-        let args = env::args().skip(1).collect::<HashSet<_>>();
-
-        if !args.contains("--no-insert") {
+        if !no_insert {
             // now insert the rows
             sqlx::query(
                 "INSERT INTO prices (
