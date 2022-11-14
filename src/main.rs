@@ -221,8 +221,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if !mapped_products.is_empty() {
             println!(
-                "Failed to find {} products inserted in database",
+                "Failed to find {} products inserted in database. This may be the case if the `--no-insert` flag was run",
                 mapped_products.len()
+            );
+            println!(
+                "Products not found in database: {:?}",
+                mapped_products.keys()
             );
         }
 
