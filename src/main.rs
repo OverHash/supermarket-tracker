@@ -231,7 +231,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!(
-            "Failed to find {} skus, items were removed from the store",
+            "Failed to find {} skus, items were likely removed from the store but remain in the database",
             lost_skus.len()
         );
 
