@@ -2,16 +2,15 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use std::{env, fs};
 
-use countdown::{get_categories, Category, Product};
+use countdown::{get_categories, Product};
 use dotenvy::dotenv;
 use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::Row;
 use tokio::task;
 
-use crate::countdown::get_products;
+use crate::countdown::{get_all_products, COUNTDOWN_BASE_URL};
 use crate::initialize_database::initialize_database;
 
-const BASE_URL: &str = "https://www.countdown.co.nz/api/v1";
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
 const CACHE_PATH: &str = "cache.json";
 /// The amount of milliseconds to wait between performing iterations on the pages.
@@ -19,30 +18,6 @@ const PAGE_ITERATION_INTERVAL: Duration = Duration::from_millis(500);
 
 mod countdown;
 mod initialize_database;
-
-/// Retrieves all the products for a given category.
-///
-/// Yields for 500ms between requests, to prevent rate-limiting.
-async fn get_all_products(
-    client: reqwest::Client,
-    category: Category,
-) -> Result<Vec<Product>, reqwest::Error> {
-    let mut current_page = Some(1);
-    let mut products = Vec::new();
-    while let Some(current) = current_page {
-        eprintln!("Getting page {current} for category {category}");
-
-        let res = get_products(&client, BASE_URL, current, Some(&category)).await?;
-        current_page = res.next_page;
-        products.extend(res.products);
-
-        // give the API some time to rest
-        // so we don't get rate limited
-        tokio::time::sleep(PAGE_ITERATION_INTERVAL).await;
-    }
-
-    Ok(products)
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -82,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // retrieve categories
     println!("Retrieving all categories...");
-    let categories = get_categories(&client, BASE_URL).await?;
+    let categories = get_categories(&client, COUNTDOWN_BASE_URL).await?;
     println!(
         "{:?}",
         categories

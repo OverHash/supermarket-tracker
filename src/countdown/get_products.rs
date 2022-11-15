@@ -1,6 +1,8 @@
 use reqwest::Client;
 use serde::Deserialize;
 
+use crate::{countdown::COUNTDOWN_BASE_URL, PAGE_ITERATION_INTERVAL};
+
 use super::{Category, Product};
 
 /// Describes the response returned by the /products endpoint.
@@ -127,4 +129,28 @@ pub async fn get_products(
         products,
         next_page: (!is_end).then_some(page_number + 1),
     })
+}
+
+/// Retrieves all the products for a given category.
+///
+/// Yields for [`PAGE_ITERATION_INTERVAL`] between requests, to prevent rate-limiting.
+pub async fn get_all_products(
+    client: reqwest::Client,
+    category: Category,
+) -> Result<Vec<Product>, reqwest::Error> {
+    let mut current_page = Some(1);
+    let mut products = Vec::new();
+    while let Some(current) = current_page {
+        eprintln!("Getting page {current} for category {category}");
+
+        let res = get_products(&client, COUNTDOWN_BASE_URL, current, Some(&category)).await?;
+        current_page = res.next_page;
+        products.extend(res.products);
+
+        // give the API some time to rest
+        // so we don't get rate limited
+        tokio::time::sleep(PAGE_ITERATION_INTERVAL).await;
+    }
+
+    Ok(products)
 }
