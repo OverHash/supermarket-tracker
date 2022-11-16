@@ -31,16 +31,8 @@ enum ItemResponse {
         name: String,
         /// The GS1 barcode.
         barcode: String,
-        /// The variety of the product, if it has one.
-        variety: Option<String>,
-        /// The brand type of the product.
-        brand: String,
-        /// A URL slug representing the product.
-        slug: String,
         /// A unique store identifier ID.
         sku: String,
-        /// The type of unit when purchasing the product.
-        unit: String,
         /// The price of the product.
         price: ProductPrice,
     },
@@ -50,6 +42,7 @@ enum ItemResponse {
     PromotionalCarousel {},
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProductPrice {
@@ -63,7 +56,7 @@ struct ProductPrice {
     save_price: f32,
 }
 
-/// The size to query each page.
+/// The size amount of items to query for each page.
 const PAGE_SIZE: i32 = 120;
 
 /// The response for a request to browse the store.
@@ -78,7 +71,7 @@ pub struct GetProductResponse {
 
 /// Retrieves a list of products
 ///
-/// Uses the /products?target=browse endpoint.
+/// Uses the `/products?target=browse` endpoint.
 pub async fn get_products(
     client: &Client,
     base_url: &str,
@@ -131,7 +124,7 @@ pub async fn get_products(
     })
 }
 
-/// Retrieves all the products for a given category.
+/// Retrieves all the products for a given [`Category`].
 ///
 /// Yields for [`PAGE_ITERATION_INTERVAL`] between requests, to prevent rate-limiting.
 pub async fn get_all_products(
