@@ -4,11 +4,13 @@ use std::{env, fs};
 
 use countdown::{get_categories, Product};
 use dotenvy::dotenv;
+use error_stack::{bail, IntoReport, Result, ResultExt};
 use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::Row;
 use tokio::task;
 
 use crate::countdown::{get_all_products, COUNTDOWN_BASE_URL};
+use crate::error::ApplicationError;
 use crate::initialize_database::initialize_database;
 
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
@@ -17,15 +19,23 @@ const CACHE_PATH: &str = "cache.json";
 const PAGE_ITERATION_INTERVAL: Duration = Duration::from_millis(500);
 
 mod countdown;
+mod error;
 mod initialize_database;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), ApplicationError> {
     // ignore any error attempting to load .env file
     dotenv().ok();
 
-    let args = env::args().skip(1).collect::<HashSet<_>>();
-    let no_insert = args.contains("--no-insert");
+    let args: Vec<_> = env::args().skip(1).collect();
+    let hashed_args: HashSet<String> = args.iter().cloned().collect();
+
+    let no_insert = hashed_args.contains("--no-insert");
+    let Some(supermarket_type) = args.iter().position(|a| a == "--supermarket") else {
+		bail!(ApplicationError::InvalidOption {
+			option: String::from("--supermarket")
+		});
+	};
 
     let client = {
         let mut default_headers = reqwest::header::HeaderMap::new();

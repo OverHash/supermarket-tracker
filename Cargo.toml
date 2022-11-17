@@ -14,3 +14,4 @@ sqlx = { version = "0.6.2", features = [
 	"runtime-tokio-native-tls",
 ] }
 dotenvy = "0.15.6"
+error-stack = "0.2.4"
