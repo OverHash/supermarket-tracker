@@ -4,7 +4,7 @@ use std::{env, fs};
 
 use countdown::{get_categories, Product};
 use dotenvy::dotenv;
-use error_stack::{bail, IntoReport, Result, ResultExt};
+use error_stack::{IntoReport, Result, ResultExt};
 use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::Row;
 use tokio::task;
@@ -12,6 +12,7 @@ use tokio::task;
 use crate::countdown::{get_all_products, COUNTDOWN_BASE_URL};
 use crate::error::ApplicationError;
 use crate::initialize_database::initialize_database;
+use crate::supermarket::get_supermarket_type;
 
 const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36";
 const CACHE_PATH: &str = "cache.json";
@@ -21,6 +22,7 @@ const PAGE_ITERATION_INTERVAL: Duration = Duration::from_millis(500);
 mod countdown;
 mod error;
 mod initialize_database;
+mod supermarket;
 
 #[tokio::main]
 async fn main() -> Result<(), ApplicationError> {
@@ -31,11 +33,11 @@ async fn main() -> Result<(), ApplicationError> {
     let hashed_args: HashSet<String> = args.iter().cloned().collect();
 
     let no_insert = hashed_args.contains("--no-insert");
-    let Some(supermarket_type) = args.iter().position(|a| a == "--supermarket") else {
-		bail!(ApplicationError::InvalidOption {
-			option: String::from("--supermarket")
-		});
-	};
+
+    let supermarket_type =
+        get_supermarket_type(&args).change_context(ApplicationError::InvalidOption {
+            option: String::from("--supermarket"),
+        })?;
 
     let client = {
         let mut default_headers = reqwest::header::HeaderMap::new();
@@ -61,13 +63,19 @@ async fn main() -> Result<(), ApplicationError> {
         .connect(
             &env::var("DATABASE_URL").expect("Failed to read DATABASE_URL environment variable"),
         )
-        .await?;
+        .await
+        .into_report()
+        .change_context(ApplicationError::DatabaseConnectError {})?;
     println!("Connected to database");
-    initialize_database(&connection).await?;
+    initialize_database(&connection)
+        .await
+        .change_context(ApplicationError::DatabaseInitializeError {})?;
 
     // retrieve categories
     println!("Retrieving all categories...");
-    let categories = get_categories(&client, COUNTDOWN_BASE_URL).await?;
+    let categories = get_categories(&client, COUNTDOWN_BASE_URL)
+        .await
+        .change_context(ApplicationError::HttpError {})?;
     println!(
         "{:?}",
         categories
@@ -114,11 +122,11 @@ async fn main() -> Result<(), ApplicationError> {
 
         sqlx::query(
             r#"INSERT INTO countdown_products (
-				name, barcode, sku
-			) SELECT * FROM UNNEST($1, $2, $3)
-			ON CONFLICT (sku) DO NOTHING
-			RETURNING sku, id
-		"#,
+                name, barcode, sku
+            ) SELECT * FROM UNNEST($1, $2, $3)
+            ON CONFLICT (sku) DO NOTHING
+            RETURNING sku, id
+        "#,
         )
         .bind(names)
         .bind(barcodes)
@@ -152,8 +160,8 @@ async fn main() -> Result<(), ApplicationError> {
             .collect::<Vec<_>>();
         sqlx::query(
             r#"INSERT INTO PRODUCTS (
-			countdown_id	
-		) SELECT * FROM UNNEST($1)"#,
+            countdown_id
+        ) SELECT * FROM UNNEST($1)"#,
         )
         .bind(new_products)
         .execute(&connection)
@@ -166,9 +174,9 @@ async fn main() -> Result<(), ApplicationError> {
     {
         let mapped_product_ids = sqlx::query(
             r#"SELECT products.id, countdown_products.sku FROM products
-			INNER JOIN countdown_products
-			ON products.countdown_id = countdown_products.id
-			WHERE countdown_id IS NOT NULL"#,
+            INNER JOIN countdown_products
+            ON products.countdown_id = countdown_products.id
+            WHERE countdown_id IS NOT NULL"#,
         )
         .map(|row: PgRow| {
             let id: i32 = row.get(0);
@@ -224,10 +232,10 @@ async fn main() -> Result<(), ApplicationError> {
             // now insert the rows
             sqlx::query(
                 "INSERT INTO prices (
-				product_id,
-				cost_in_cents,
-				supermarket
-			) SELECT * FROM UNNEST($1, $2, $3)",
+                product_id,
+                cost_in_cents,
+                supermarket
+            ) SELECT * FROM UNNEST($1, $2, $3)",
             )
             .bind(&product_ids)
             .bind(&cost_in_cents)

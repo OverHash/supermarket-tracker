@@ -1,3 +1,4 @@
+use error_stack::Result;
 use reqwest::Client;
 use serde::Deserialize;
 

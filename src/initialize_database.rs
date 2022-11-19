@@ -1,8 +1,7 @@
-use std::error::Error;
-
+use error_stack::Result;
 use sqlx::{Pool, Postgres};
 
-pub async fn initialize_database(conn: &Pool<Postgres>) -> Result<(), Box<dyn Error>> {
+pub async fn initialize_database(conn: &Pool<Postgres>) -> Result<(), sqlx::Error> {
     // create the supermarket table
     sqlx::query(
         r#"CREATE TABLE IF NOT EXISTS countdown_products (
