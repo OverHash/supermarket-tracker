@@ -10,23 +10,41 @@ pub enum ApplicationError {
         option: String,
     },
     /// Failed to connect to the database
-    DatabaseConnectError {},
+    DatabaseConnectError,
     /// Failed to initialize the database with the initial tables
-    DatabaseInitializeError {},
+    DatabaseInitializeError,
     /// Errors associated with using [`reqwest`]
-    HttpError {},
+    HttpError,
+    /// Errors associated with retrieving the categories.
+    CategoryRetrievalError,
+    /// Failed to write response cache to disk
+    CacheError,
+    /// Failed to insert new products into the database
+    NewProductsInsertionError,
+    /// Failed to insert prices of products into the database
+    PriceDataInsertionError,
 }
 
 impl fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ApplicationError::InvalidOption { option } => write!(f, "Invalid option '{}'", option),
-            ApplicationError::DatabaseConnectError {} => write!(f, "Failed to connect to database"),
-            ApplicationError::DatabaseInitializeError {} => {
+            ApplicationError::DatabaseConnectError => write!(f, "Failed to connect to database"),
+            ApplicationError::DatabaseInitializeError => {
                 write!(f, "Failed to initialize database")
             }
-            ApplicationError::HttpError {} => {
+            ApplicationError::HttpError => {
                 write!(f, "An error occurred while performing an HTTP request")
+            }
+            ApplicationError::CategoryRetrievalError => {
+                write!(f, "Failed to retrieve categories of products")
+            }
+            ApplicationError::CacheError => write!(f, "Failed to write cache"),
+            ApplicationError::NewProductsInsertionError => {
+                write!(f, "Failed to insert new products into database")
+            }
+            ApplicationError::PriceDataInsertionError => {
+                write!(f, "Failed to write price feed into database")
             }
         }
     }

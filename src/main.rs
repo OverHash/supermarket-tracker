@@ -54,28 +54,31 @@ async fn main() -> Result<(), ApplicationError> {
             .user_agent(DEFAULT_USER_AGENT)
             .default_headers(default_headers)
             .build()
-            .expect("Failed to create http client")
-    };
+            .into_report()
+            .change_context(ApplicationError::HttpError)
+    }?;
 
     // connect to database
+    let database_url = env::var("DATABASE_URL")
+        .into_report()
+        .change_context(ApplicationError::DatabaseConnectError)?;
     let connection = PgPoolOptions::new()
         .max_connections(5)
-        .connect(
-            &env::var("DATABASE_URL").expect("Failed to read DATABASE_URL environment variable"),
-        )
+        .connect(&database_url)
         .await
         .into_report()
-        .change_context(ApplicationError::DatabaseConnectError {})?;
+        .change_context(ApplicationError::DatabaseConnectError)?;
+
     println!("Connected to database");
     initialize_database(&connection)
         .await
-        .change_context(ApplicationError::DatabaseInitializeError {})?;
+        .change_context(ApplicationError::DatabaseInitializeError)?;
 
     // retrieve categories
     println!("Retrieving all categories...");
     let categories = get_categories(&client, COUNTDOWN_BASE_URL)
         .await
-        .change_context(ApplicationError::HttpError {})?;
+        .change_context(ApplicationError::CategoryRetrievalError)?;
     println!(
         "{:?}",
         categories
@@ -95,8 +98,13 @@ async fn main() -> Result<(), ApplicationError> {
     // transform into the sku's
     let category_products = category_retrieval
         .into_iter()
-        .map(|category_results| category_results.expect("Failed to get category"))
-        .collect::<Result<Vec<Vec<Product>>, _>>()?
+        .map(|category_results| {
+            category_results
+                .into_report()
+                .change_context(ApplicationError::CategoryRetrievalError)
+        })
+        .collect::<Result<Result<Vec<Vec<Product>>, _>, _>>()?
+        .change_context(ApplicationError::CategoryRetrievalError)?
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
@@ -105,8 +113,12 @@ async fn main() -> Result<(), ApplicationError> {
     // cache the result
     fs::write(
         CACHE_PATH,
-        serde_json::to_string_pretty(&category_products)?,
-    )?;
+        serde_json::to_string_pretty(&category_products)
+            .into_report()
+            .change_context(ApplicationError::CacheError)?,
+    )
+    .into_report()
+    .change_context(ApplicationError::CacheError)?;
 
     // create the products if not existing before
     let new_products_ids = if !no_insert {
@@ -138,7 +150,9 @@ async fn main() -> Result<(), ApplicationError> {
             (sku, id)
         })
         .fetch_all(&connection)
-        .await?
+        .await
+        .into_report()
+        .change_context(ApplicationError::NewProductsInsertionError)?
     } else {
         vec![]
     };
@@ -165,7 +179,9 @@ async fn main() -> Result<(), ApplicationError> {
         )
         .bind(new_products)
         .execute(&connection)
-        .await?;
+        .await
+        .into_report()
+        .change_context(ApplicationError::NewProductsInsertionError)?;
 
         println!("Found {product_count} new products");
     }
@@ -185,7 +201,9 @@ async fn main() -> Result<(), ApplicationError> {
             (id, sku)
         })
         .fetch_all(&connection)
-        .await?;
+        .await
+        .into_report()
+        .change_context(ApplicationError::PriceDataInsertionError)?;
 
         let mut product_ids = Vec::with_capacity(category_products.len());
         let mut cost_in_cents = Vec::with_capacity(category_products.len());
@@ -241,7 +259,9 @@ async fn main() -> Result<(), ApplicationError> {
             .bind(&cost_in_cents)
             .bind(&supermarket)
             .execute(&connection)
-            .await?;
+            .await
+            .into_report()
+            .change_context(ApplicationError::PriceDataInsertionError)?;
 
             println!("Inserted {} prices", product_ids.len());
         } else {
