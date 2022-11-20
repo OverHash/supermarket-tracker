@@ -12,11 +12,12 @@ Tracks supermarket prices across New Zealand online supermarkets.
 ```
 supermarket-tracker
 
-USAGE:
+Usage:
     supermarket-tracker [OPTIONS] [SUBCOMMAND]
 
-OPTIONS:
-    --no-insert				Skips insertion of new products/prices to database
+Options:
+	--supermarket <SUPERMARKET>		The supermarket to run price tracking on [countdown]
+    --no-insert						Optionally skips insertion of new products/prices to database
 ```
 
 ### Architecture
