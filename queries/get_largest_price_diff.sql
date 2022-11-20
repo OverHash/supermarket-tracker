@@ -10,7 +10,7 @@ WITH price_history AS (
 		OVER (PARTITION BY product_id ORDER BY time DESC) AS rank
 		FROM prices
 			JOIN products ON products.id = prices.product_id
-			JOIN countdown_products ON countdown_products.id = products.id
+			JOIN countdown_products ON countdown_products.id = products.countdown_id
 		WHERE time BETWEEN current_date - 1 AND current_date + 1
 	) AS p
 	WHERE rank IN (1,2)
