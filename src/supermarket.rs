@@ -1,9 +1,16 @@
 use std::fmt;
 
-use error_stack::{Context, Report};
+use error_stack::{Context, IntoReport, Report, ResultExt};
 
 pub enum Supermarket {
     Countdown,
+}
+
+impl<'a> Supermarket {
+    /// Retrieves all the valid values that will be parsed with [`TryFrom`]
+    pub fn get_allowed_types() -> &'a [&'static str] {
+        &["Countdown"]
+    }
 }
 
 /// A struct to represent failures to convert a given [`String`] into a [`Supermarket`].
@@ -69,7 +76,18 @@ pub fn get_supermarket_type(
         .get(supermarket_type_index)
         .ok_or(SupermarketRetrievalError::NotPassedSupermarket {})?;
     let parsed_supermarket_type = Supermarket::try_from(supermarket_type.to_owned())
-        .map_err(|e| SupermarketRetrievalError::ParseError { supermarket: e.0 })?;
+        .map_err(|e| SupermarketRetrievalError::ParseError { supermarket: e.0 })
+        .into_report()
+        .attach_printable_lazy(|| {
+            format!(
+                "suggestion: valid supermarket types are {}",
+                Supermarket::get_allowed_types()
+                    .iter()
+                    .map(|s| format!("'{s}'"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })?;
 
     Ok(parsed_supermarket_type)
 }
