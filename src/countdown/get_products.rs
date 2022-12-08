@@ -207,7 +207,7 @@ pub async fn get_all_products(
                 category: category.clone(),
                 page: 1,
                 add_tasks: Some(Box::new(move |products_response| {
-                    (2i64..=products_response.total_pages)
+                    (2..=products_response.total_pages)
                         .map(|page| PageRequestTask {
                             category: category.clone(),
                             page,
