@@ -75,7 +75,7 @@ pub fn get_supermarket_type(
     let supermarket_type = args
         .get(supermarket_type_index)
         .ok_or(SupermarketRetrievalError::NotPassedSupermarket {})?;
-    let parsed_supermarket_type = Supermarket::try_from(supermarket_type.to_owned())
+    let parsed_supermarket_type = Supermarket::try_from(supermarket_type.clone())
         .map_err(|e| SupermarketRetrievalError::ParseError { supermarket: e.0 })
         .into_report()
         .attach_printable_lazy(|| {

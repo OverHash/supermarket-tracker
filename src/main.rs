@@ -110,11 +110,11 @@ async fn main() -> Result<(), ApplicationError> {
         let mut barcodes: Vec<&str> = Vec::with_capacity(products.len());
         let mut skus: Vec<&str> = Vec::with_capacity(products.len());
 
-        products.iter().for_each(|p| {
+        for p in products.iter() {
             names.push(&p.name);
             barcodes.push(&p.barcode);
             skus.push(&p.sku);
-        });
+        }
 
         sqlx::query(
             r#"INSERT INTO countdown_products (
@@ -194,9 +194,9 @@ async fn main() -> Result<(), ApplicationError> {
         let mut supermarket = Vec::with_capacity(products.len());
 
         let mut mapped_products = HashMap::with_capacity(mapped_product_ids.len());
-        products.iter().for_each(|product| {
+        for product in products.iter() {
             mapped_products.insert(&product.sku, product.per_unit_price);
-        });
+        }
 
         let mut lost_skus = vec![];
         for (product_id, sku) in mapped_product_ids {
