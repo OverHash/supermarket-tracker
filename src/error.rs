@@ -15,8 +15,10 @@ pub enum ApplicationError {
     DatabaseInitializeError,
     /// Errors associated with using [`reqwest`]
     HttpError,
-    /// Errors associated with retrieving the categories.
-    CategoryRetrievalError,
+    /// Errors associated with retrieving the categories of products.
+    CategoryRetrieval,
+    /// Errors associated with retrieving the products.
+    ProductRetrieval,
     /// Failed to write response cache to disk
     CacheError,
     /// Failed to insert new products into the database
@@ -36,8 +38,11 @@ impl fmt::Display for ApplicationError {
             ApplicationError::HttpError => {
                 write!(f, "An error occurred while performing an HTTP request")
             }
-            ApplicationError::CategoryRetrievalError => {
+            ApplicationError::CategoryRetrieval => {
                 write!(f, "Failed to retrieve categories of products")
+            }
+            ApplicationError::ProductRetrieval => {
+                write!(f, "Failed to retrieve all products")
             }
             ApplicationError::CacheError => write!(f, "Failed to write cache"),
             ApplicationError::NewProductsInsertionError => {

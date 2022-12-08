@@ -2,12 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use std::{env, fs};
 
-use countdown::{get_categories, Product};
+use countdown::get_categories;
 use dotenvy::dotenv;
 use error_stack::{IntoReport, Result, ResultExt};
 use sqlx::postgres::{PgPoolOptions, PgRow};
 use sqlx::Row;
-use tokio::task;
 
 use crate::countdown::{get_all_products, COUNTDOWN_BASE_URL};
 use crate::error::ApplicationError;
@@ -18,6 +17,8 @@ const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Appl
 const CACHE_PATH: &str = "cache.json";
 /// The amount of milliseconds to wait between performing iterations on the pages.
 const PAGE_ITERATION_INTERVAL: Duration = Duration::from_millis(500);
+/// The amount of requests to perform in parallel.
+const CONCURRENT_REQUESTS: i64 = 6;
 
 mod countdown;
 mod error;
@@ -78,7 +79,7 @@ async fn main() -> Result<(), ApplicationError> {
     println!("Retrieving all categories...");
     let categories = get_categories(&client, COUNTDOWN_BASE_URL)
         .await
-        .change_context(ApplicationError::CategoryRetrievalError)?;
+        .change_context(ApplicationError::CategoryRetrieval)?;
     println!(
         "{:?}",
         categories
@@ -88,32 +89,15 @@ async fn main() -> Result<(), ApplicationError> {
     );
 
     // retrieve products from all categories concurrently
-    let category_retrieval = futures::future::join_all(
-        categories
-            .into_iter()
-            .map(|category| task::spawn(get_all_products(client.clone(), category))),
-    )
-    .await;
-
-    // transform into the sku's
-    let category_products = category_retrieval
-        .into_iter()
-        .map(|category_results| {
-            category_results
-                .into_report()
-                .change_context(ApplicationError::CategoryRetrievalError)
-        })
-        .collect::<Result<Result<Vec<Vec<Product>>, _>, _>>()?
-        .change_context(ApplicationError::CategoryRetrievalError)?
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-    println!("{:?} products were found", category_products.len());
+    let products = get_all_products(client, categories)
+        .await
+        .change_context(ApplicationError::ProductRetrieval)?;
+    println!("{:?} products were found", products.len());
 
     // cache the result
     fs::write(
         CACHE_PATH,
-        serde_json::to_string_pretty(&category_products)
+        serde_json::to_string_pretty(&products)
             .into_report()
             .change_context(ApplicationError::CacheError)?,
     )
@@ -122,11 +106,11 @@ async fn main() -> Result<(), ApplicationError> {
 
     // create the products if not existing before
     let new_products_ids = if !no_insert {
-        let mut names: Vec<&str> = Vec::with_capacity(category_products.len());
-        let mut barcodes: Vec<&str> = Vec::with_capacity(category_products.len());
-        let mut skus: Vec<&str> = Vec::with_capacity(category_products.len());
+        let mut names: Vec<&str> = Vec::with_capacity(products.len());
+        let mut barcodes: Vec<&str> = Vec::with_capacity(products.len());
+        let mut skus: Vec<&str> = Vec::with_capacity(products.len());
 
-        category_products.iter().for_each(|p| {
+        products.iter().for_each(|p| {
             names.push(&p.name);
             barcodes.push(&p.barcode);
             skus.push(&p.sku);
@@ -168,7 +152,7 @@ async fn main() -> Result<(), ApplicationError> {
     );
 
     if !no_insert {
-        let new_products = category_products
+        let new_products = products
             .iter()
             .filter_map(|p| new_skus.remove(&p.sku))
             .collect::<Vec<_>>();
@@ -205,12 +189,12 @@ async fn main() -> Result<(), ApplicationError> {
         .into_report()
         .change_context(ApplicationError::PriceDataInsertionError)?;
 
-        let mut product_ids = Vec::with_capacity(category_products.len());
-        let mut cost_in_cents = Vec::with_capacity(category_products.len());
-        let mut supermarket = Vec::with_capacity(category_products.len());
+        let mut product_ids = Vec::with_capacity(products.len());
+        let mut cost_in_cents = Vec::with_capacity(products.len());
+        let mut supermarket = Vec::with_capacity(products.len());
 
         let mut mapped_products = HashMap::with_capacity(mapped_product_ids.len());
-        category_products.iter().for_each(|product| {
+        products.iter().for_each(|product| {
             mapped_products.insert(&product.sku, product.per_unit_price);
         });
 
