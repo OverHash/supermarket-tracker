@@ -81,11 +81,12 @@ async fn main() -> Result<(), ApplicationError> {
         .await
         .change_context(ApplicationError::CategoryRetrieval)?;
     println!(
-        "{:?}",
+        "{}",
         categories
             .iter()
             .map(std::string::ToString::to_string)
             .collect::<Vec<_>>()
+            .join(", ")
     );
 
     // retrieve products from all categories concurrently
@@ -226,7 +227,7 @@ async fn main() -> Result<(), ApplicationError> {
         }
 
         println!(
-            "Failed to find {} skus, items were likely removed from the store but remain in the database",
+            "Failed to find {} skus, items are likely off-sale",
             lost_skus.len()
         );
 
