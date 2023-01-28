@@ -4,12 +4,13 @@ use error_stack::{Context, IntoReport, Report, ResultExt};
 
 pub enum Supermarket {
     Countdown,
+    NewWorld,
 }
 
 impl<'a> Supermarket {
     /// Retrieves all the valid values that will be parsed with [`TryFrom`]
     pub fn get_allowed_types() -> &'a [&'static str] {
-        &["Countdown"]
+        &["Countdown", "NewWorld"]
     }
 }
 
@@ -22,6 +23,7 @@ impl TryFrom<String> for Supermarket {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
             "Countdown" => Ok(Supermarket::Countdown {}),
+            "NewWorld" => Ok(Supermarket::NewWorld {}),
             _ => Err(SupermarketConversionError(value)),
         }
     }

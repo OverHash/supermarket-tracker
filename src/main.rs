@@ -19,6 +19,7 @@ const CONCURRENT_REQUESTS: i64 = 12;
 mod countdown;
 mod error;
 mod initialize_database;
+mod new_world;
 mod supermarket;
 
 #[tokio::main]
@@ -53,10 +54,7 @@ async fn main() -> Result<(), ApplicationError> {
         .change_context(ApplicationError::DatabaseInitializeError)?;
 
     match supermarket_type {
-        Supermarket::Countdown => {
-            countdown::run(connection, no_insert).await?;
-        }
+        Supermarket::Countdown => countdown::run(connection, no_insert).await,
+        Supermarket::NewWorld => new_world::run().await,
     }
-
-    Ok(())
 }
