@@ -76,8 +76,7 @@ pub async fn get_categories(
         .ok_or(GetCategoriesError::DecodeError)
         .attach_printable("Failed to read navigation items")?
         .into_iter()
-        .map(|nav_item| nav_item.items)
-        .flatten()
+        .flat_map(|nav_item| nav_item.items)
         .collect();
 
     Ok(nav_items)
