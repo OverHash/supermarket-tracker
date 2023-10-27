@@ -84,8 +84,12 @@ pub async fn get_products(
     client: &Client,
     base_url: &str,
     page_number: i64,
-    category: Option<&Category>,
+    category: &Category,
 ) -> Result<GetProductResponse, reqwest::Error> {
+    // our Category contains url information
+    // but we only want the last part of the url
+    let category_url_part = category.url.split('/').last();
+
     let res: ProductsResponse = client
         .get(format!("{base_url}/products"))
         .query(&[
@@ -94,7 +98,7 @@ pub async fn get_products(
             ("page", Some(page_number.to_string())),
             (
                 "dasFilter",
-                category.map(|c| format!("Department;;{};false", c.url)),
+                category_url_part.map(|url| format!("Department;;{url};false")),
             ),
         ])
         .send()
@@ -151,12 +155,11 @@ async fn perform_task(
     loop {
         let task = tasks.lock().await.pop_front();
         let Some(task) = task else {
-			break;
-		};
+            break;
+        };
 
         eprintln!("Getting page {} for category {}", task.page, task.category);
-        let res =
-            get_products(&client, COUNTDOWN_BASE_URL, task.page, Some(&task.category)).await?;
+        let res = get_products(&client, COUNTDOWN_BASE_URL, task.page, &task.category).await?;
 
         // handle the add_tasks callback if it existed
         if let Some(callback) = task.add_tasks {
