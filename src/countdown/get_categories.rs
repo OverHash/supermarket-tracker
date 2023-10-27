@@ -1,6 +1,6 @@
 use core::fmt;
 
-use error_stack::{Context, IntoReport, Result, ResultExt};
+use error_stack::{Context, Result, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -57,11 +57,9 @@ pub async fn get_categories(
         .get(format!("{base_url}/shell"))
         .send()
         .await
-        .into_report()
         .change_context(GetCategoriesError::HttpError)?
         .json()
         .await
-        .into_report()
         .change_context(GetCategoriesError::DecodeError)?;
 
     // read res.mainNavs[1]
@@ -70,14 +68,12 @@ pub async fn get_categories(
         .into_iter()
         .find(|nav| &nav.name == "Browse")
         .ok_or(GetCategoriesError::DecodeError)
-        .into_report()
         .attach_printable("Failed to find Browse menu")?;
 
     // read res.mainNavs[1].navigationItems[0]
     let nav_items = browse_page
         .navigation_items
         .ok_or(GetCategoriesError::DecodeError)
-        .into_report()
         .attach_printable("Failed to read navigation items")?
         .into_iter()
         .map(|nav_item| nav_item.items)

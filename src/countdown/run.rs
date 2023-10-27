@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs};
 
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use sqlx::{postgres::PgRow, PgPool, Row};
 
 use crate::{
@@ -28,7 +28,6 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             .user_agent(DEFAULT_USER_AGENT)
             .default_headers(default_headers)
             .build()
-            .into_report()
             .change_context(ApplicationError::HttpError)
     }?;
 
@@ -55,11 +54,8 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     // cache the result
     fs::write(
         CACHE_PATH,
-        serde_json::to_string_pretty(&products)
-            .into_report()
-            .change_context(ApplicationError::CacheError)?,
+        serde_json::to_string_pretty(&products).change_context(ApplicationError::CacheError)?,
     )
-    .into_report()
     .change_context(ApplicationError::CacheError)?;
 
     // create the products if not existing before
@@ -93,7 +89,6 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         })
         .fetch_all(&connection)
         .await
-        .into_report()
         .change_context(ApplicationError::NewProductsInsertionError)?
     } else {
         vec![]
@@ -122,7 +117,6 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         .bind(new_products)
         .execute(&connection)
         .await
-        .into_report()
         .change_context(ApplicationError::NewProductsInsertionError)?;
 
         println!("Found {product_count} new products");
@@ -144,7 +138,6 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         })
         .fetch_all(&connection)
         .await
-        .into_report()
         .change_context(ApplicationError::PriceDataInsertionError)?;
 
         let mut product_ids = Vec::with_capacity(products.len());
@@ -202,7 +195,6 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             .bind(&supermarket)
             .execute(&connection)
             .await
-            .into_report()
             .change_context(ApplicationError::PriceDataInsertionError)?;
 
             println!("Inserted {} prices", product_ids.len());

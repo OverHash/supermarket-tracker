@@ -1,6 +1,6 @@
 use std::fmt;
 
-use error_stack::{Context, IntoReport, Report, ResultExt};
+use error_stack::{Context, Report, ResultExt};
 
 pub enum Supermarket {
     Countdown,
@@ -79,7 +79,6 @@ pub fn get_supermarket_type(
         .ok_or(SupermarketRetrievalError::NotPassedSupermarket {})?;
     let parsed_supermarket_type = Supermarket::try_from(supermarket_type.clone())
         .map_err(|e| SupermarketRetrievalError::ParseError { supermarket: e.0 })
-        .into_report()
         .attach_printable_lazy(|| {
             format!(
                 "suggestion: valid supermarket types are {}",

@@ -1,5 +1,5 @@
 use super::NEW_WORLD_BASE_URL;
-use error_stack::{IntoReport, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -26,11 +26,9 @@ pub async fn run() -> Result<(), Report<ApplicationError>> {
         .get(format!("{NEW_WORLD_BASE_URL}/Store/GetStoreList"))
         .send()
         .await
-        .into_report()
         .change_context(ApplicationError::HttpError)?
         .json()
         .await
-        .into_report()
         .change_context(ApplicationError::HttpError)?;
 
     Ok(())

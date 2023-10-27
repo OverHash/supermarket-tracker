@@ -3,7 +3,7 @@ use std::env;
 use std::time::Duration;
 
 use dotenvy::dotenv;
-use error_stack::{IntoReport, Result, ResultExt};
+use error_stack::{Result, ResultExt};
 use sqlx::postgres::PgPoolOptions;
 
 use crate::error::ApplicationError;
@@ -38,14 +38,12 @@ async fn main() -> Result<(), ApplicationError> {
         })?;
 
     // connect to database
-    let database_url = env::var("DATABASE_URL")
-        .into_report()
-        .change_context(ApplicationError::DatabaseConnectError)?;
+    let database_url =
+        env::var("DATABASE_URL").change_context(ApplicationError::DatabaseConnectError)?;
     let connection = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
         .await
-        .into_report()
         .change_context(ApplicationError::DatabaseConnectError)?;
 
     println!("Connected to database");

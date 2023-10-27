@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt, sync::Arc};
 
-use error_stack::{Context, IntoReport, Result, ResultExt};
+use error_stack::{Context, Result, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 use tokio::{sync::Mutex, task};
@@ -230,7 +230,6 @@ pub async fn get_all_products(
     .await
     .into_iter()
     .collect::<std::result::Result<Vec<_>, _>>()
-    .into_report()
     .change_context(ProductRetrievalError::Join)?;
 
     let product_results = task_results
