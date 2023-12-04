@@ -5,6 +5,10 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_VERSION: ^0.7
+
 jobs:
   create-release:
     name: Create Release
