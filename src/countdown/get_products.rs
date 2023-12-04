@@ -122,7 +122,8 @@ pub async fn get_products(
                 barcode,
                 sku,
                 // convert to cents from dollars
-                per_unit_price: (price.sale_price * 100.0) as i32,
+                #[allow(clippy::cast_possible_truncation)]
+                per_unit_price: (price.sale_price * 100.0).round() as i32,
             }),
             _ => None,
         })
@@ -134,6 +135,7 @@ pub async fn get_products(
     Ok(GetProductResponse {
         products,
         next_page: (!is_end).then_some(page_number + 1),
+        #[allow(clippy::cast_possible_truncation)]
         total_pages: (f64::from(res.products.total_items) / f64::from(PAGE_SIZE)).ceil() as i64,
     })
 }

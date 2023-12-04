@@ -3,6 +3,7 @@ use std::fmt;
 use error_stack::Context;
 
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub enum ApplicationError {
     /// Invalid user option provided to the binary
     InvalidOption {
@@ -30,7 +31,7 @@ pub enum ApplicationError {
 impl fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ApplicationError::InvalidOption { option } => write!(f, "Invalid option '{}'", option),
+            ApplicationError::InvalidOption { option } => write!(f, "Invalid option '{option}'"),
             ApplicationError::DatabaseConnectError => write!(f, "Failed to connect to database"),
             ApplicationError::DatabaseInitializeError => {
                 write!(f, "Failed to initialize database")

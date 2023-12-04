@@ -29,6 +29,7 @@ struct ShellResponse {
 }
 
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub enum GetCategoriesError {
     HttpError,
     DecodeError,

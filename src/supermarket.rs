@@ -15,6 +15,7 @@ impl<'a> Supermarket {
 }
 
 /// A struct to represent failures to convert a given [`String`] into a [`Supermarket`].
+#[allow(clippy::module_name_repetitions)]
 pub struct SupermarketConversionError(String);
 
 impl TryFrom<String> for Supermarket {
@@ -29,6 +30,7 @@ impl TryFrom<String> for Supermarket {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub enum SupermarketRetrievalError {
     MissingSupermarket {},

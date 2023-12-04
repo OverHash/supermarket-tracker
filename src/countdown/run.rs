@@ -12,6 +12,7 @@ use crate::{
 /// Runs the countdown scraper.
 ///
 /// `no_insert` indicates if the scraper should not insert data into the database.
+#[allow(clippy::too_many_lines)]
 pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<ApplicationError>> {
     let client = {
         let mut default_headers = reqwest::header::HeaderMap::new();
@@ -59,24 +60,26 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     .change_context(ApplicationError::CacheError)?;
 
     // create the products if not existing before
-    let new_products_ids = if !no_insert {
+    let new_products_ids = if no_insert {
+        vec![]
+    } else {
         let mut names: Vec<&str> = Vec::with_capacity(products.len());
         let mut barcodes: Vec<&str> = Vec::with_capacity(products.len());
         let mut skus: Vec<&str> = Vec::with_capacity(products.len());
 
-        for p in products.iter() {
+        for p in &products {
             names.push(&p.name);
             barcodes.push(&p.barcode);
             skus.push(&p.sku);
         }
 
         sqlx::query(
-            r#"INSERT INTO countdown_products (
+            r"INSERT INTO countdown_products (
 					name, barcode, sku
 				) SELECT * FROM UNNEST($1, $2, $3)
 				ON CONFLICT (sku) DO NOTHING
 				RETURNING sku, id
-			"#,
+			",
         )
         .bind(names)
         .bind(barcodes)
@@ -90,8 +93,6 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         .fetch_all(&connection)
         .await
         .change_context(ApplicationError::NewProductsInsertionError)?
-    } else {
-        vec![]
     };
 
     let product_count = new_products_ids.len();
@@ -110,9 +111,9 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             .filter_map(|p| new_skus.remove(&p.sku))
             .collect::<Vec<_>>();
         sqlx::query(
-            r#"INSERT INTO PRODUCTS (
+            r"INSERT INTO PRODUCTS (
 				countdown_id
-			) SELECT * FROM UNNEST($1)"#,
+			) SELECT * FROM UNNEST($1)",
         )
         .bind(new_products)
         .execute(&connection)
@@ -125,10 +126,10 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     // upload all price data
     {
         let mapped_product_ids = sqlx::query(
-            r#"SELECT products.id, countdown_products.sku FROM products
+            r"SELECT products.id, countdown_products.sku FROM products
 				INNER JOIN countdown_products
 				ON products.countdown_id = countdown_products.id
-				WHERE countdown_id IS NOT NULL"#,
+				WHERE countdown_id IS NOT NULL",
         )
         .map(|row: PgRow| {
             let id: i32 = row.get(0);
@@ -145,7 +146,7 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         let mut supermarket = Vec::with_capacity(products.len());
 
         let mut mapped_products = HashMap::with_capacity(mapped_product_ids.len());
-        for product in products.iter() {
+        for product in &products {
             mapped_products.insert(&product.sku, product.per_unit_price);
         }
 
@@ -181,7 +182,9 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             lost_skus.len()
         );
 
-        if !no_insert {
+        if no_insert {
+            println!("Skipped inserting prices into database");
+        } else {
             // now insert the rows
             sqlx::query(
                 "INSERT INTO prices (
@@ -198,8 +201,6 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             .change_context(ApplicationError::PriceDataInsertionError)?;
 
             println!("Inserted {} prices", product_ids.len());
-        } else {
-            println!("Skipped inserting prices into database");
         };
 
         Ok(())
