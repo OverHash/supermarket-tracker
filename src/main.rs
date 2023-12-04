@@ -9,6 +9,7 @@ use sqlx::postgres::PgPoolOptions;
 use crate::error::ApplicationError;
 use crate::initialize_database::initialize_database;
 use crate::supermarket::{get_supermarket_type, Supermarket};
+use crate::telemetry::init_subscriber;
 
 pub const CACHE_PATH: &str = "cache.json";
 /// The amount of milliseconds to wait between performing iterations on the pages.
@@ -21,9 +22,13 @@ mod error;
 mod initialize_database;
 mod new_world;
 mod supermarket;
+mod telemetry;
 
 #[tokio::main]
 async fn main() -> Result<(), ApplicationError> {
+    let subscriber = telemetry::get_tracing_subscriber(std::io::stdout);
+    init_subscriber(subscriber);
+
     // ignore any error attempting to load .env file
     dotenv().ok();
 

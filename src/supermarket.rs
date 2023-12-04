@@ -9,6 +9,7 @@ pub enum Supermarket {
 
 impl<'a> Supermarket {
     /// Retrieves all the valid values that will be parsed with [`TryFrom`]
+    #[must_use]
     pub fn get_allowed_types() -> &'a [&'static str] {
         &["Countdown", "NewWorld"]
     }
@@ -59,11 +60,10 @@ impl Context for SupermarketRetrievalError {}
 
 /// Attempts to retrieve the type of supermarket the user specified with the `--supermarket` option.
 ///
-/// If the user did not provide a supermarket, [`SupermarketRetrievalError::MissingSupermarket`] is returned.
-///
-/// If the user passed the '--supermarket' option, but did not specify a supermarket, [`SupermarketRetrievalError::NotPassedSupermarket`] is returned.
-///
-/// If the user provided an invalid supermarket, [`SupermarketRetrievalError::ParseError`] is returned.
+/// # Errors
+/// - If no `--supermarket` option was provided in args, a [`SupermarketRetrievalError::MissingSupermarket`] is returned.
+/// - If the `--supermarket` option was missing a value, a [`SupermarketRetrievalError::NotPassedSupermarket`] is returned.
+/// - If an invalid supermarket is provided, a [`SupermarketRetrievalError::ParseError`] is returned.
 pub fn get_supermarket_type(
     args: &[String],
 ) -> Result<Supermarket, Report<SupermarketRetrievalError>> {

@@ -21,6 +21,8 @@ sqlx = { version = "0.7.3", features = [
 ] }
 dotenvy = "0.15.7"
 error-stack = "0.4.1"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", default-features = false, features = ["fmt", "env-filter"] }
 
 [lints.clippy]
 cargo = "deny"
