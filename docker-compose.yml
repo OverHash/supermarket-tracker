@@ -2,9 +2,7 @@ version: "3.8"
 
 services:
   db:
-    build:
-      context: .
-      dockerfile: Dockerfile.database
+    image: postgres
     restart: always
     environment:
       # these parameters may be set in .env file, or through normal env setting

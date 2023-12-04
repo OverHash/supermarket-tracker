@@ -1,4 +1,0 @@
-FROM postgres
-
-# we only want to copy the .up.sql files over
-COPY ./migrations/*.up.sql /docker-entrypoint-initdb.d/
