@@ -1,0 +1,140 @@
+name: Rust
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_VERSION: ^0.7
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: supermarket_tracker
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli
+          --version=${{ env.SQLX_VERSION }}
+          --no-default-features
+          --features rustls,postgres
+          --locked
+
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install postgresql-client -y
+
+      - name: Setup env
+        run: cp .env.example .env
+
+      - name: Setup database
+        run: sqlx database setup
+
+      - name: Run tests
+        run: cargo test
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Enforce formatting
+        run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: supermarket_tracker
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli
+          --version=${{ env.SQLX_VERSION }}
+          --no-default-features
+          --features rustls,postgres
+          --locked
+
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install postgresql-client -y
+
+      - name: Setup env
+        run: cp .env.example .env
+
+      - name: Setup database
+        run: sqlx database setup
+
+      - name: Linting
+        run: cargo clippy -- -D warnings
+
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: supermarket_tracker
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: sqlx-${{ env.SQLX_VERSION }}
+
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli
+          --version=${{ env.SQLX_VERSION }}
+          --no-default-features
+          --features rustls,postgres
+          --locked
+
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install postgresql-client -y
+
+      - name: Setup env
+        run: cp .env.example .env
+
+      - name: Setup database
+        run: sqlx database setup
+
+      - name: Generate code coverage
+        run: |
+          cargo install cargo-tarpaulin
+          && cargo tarpaulin --verbose --workspace
