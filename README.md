@@ -2,12 +2,13 @@
 
 Tracks supermarket prices across New Zealand online supermarkets.
 
-### Starting the application
+## Starting the application
 
-- Make sure to be running a Postgres instance with a blank `supermarket_tracker` database created.
-  - The app will initialize all tables for you.
+- Setup relevant environment variables (a `.env` file can be used for convenience, see [`.env.example`](env.example))
+- Run a Postgres instance with a blank `supermarket_tracker` database created (e.g., with `docker compose up -d`)
+  - The app will initialize all tables for you when first run
 
-### Usage
+## CLI Usage
 
 ```
 supermarket-tracker
@@ -16,8 +17,8 @@ Usage:
     supermarket-tracker [OPTIONS] [SUBCOMMAND]
 
 Options:
-	--supermarket <SUPERMARKET>		The supermarket to run price tracking on [countdown]
-    --no-insert						Optionally skips insertion of new products/prices to database
+    --supermarket <SUPERMARKET>     The supermarket to run price tracking on [countdown]
+    --no-insert                     Optionally skips insertion of new products/prices to database
 ```
 
 ### Architecture
@@ -28,11 +29,18 @@ Core application is written in Rust. Read more in the [ARCHITECTURE.md](./ARCHIT
 
 [Docker](https://www.docker.com/) can be used to host the Postgres database, and perform all the initial work of setup.
 
-To use, ensure you have a `.env` file (if you don't, simply `cp .env.example .env`) and run `docker compose up supermarket-tracker -d` to start the services. This will expose a Postgres database on port 5432 of the host machine.
+To use, ensure you have a `.env` file (if you don't, simply `cp .env.example .env`) and run `docker compose up -d` to start the services. This will expose a Postgres database on port 5432 of the host machine.
 
 To stop, use `docker compose down` to stop all the containers, and `docker compose down --volumes` to delete the volumes as well.
 
-### Migrating Docker Containers
+### How much data is tracked?
+
+I currently have around ~800,000 price points from ~23,000 products tracked since October 2022.
+
+If this data would be of use, please [contact me](https://x.com/OverHashDev). I have mostly used it for my own fun statistical analysis,
+and comparing data against what Stats NZ produces.
+
+### Migrating Docker Containers Between Hosts
 
 I've had some trouble finding resources for this online, so I thought posting these instructions would be helpful.
 
