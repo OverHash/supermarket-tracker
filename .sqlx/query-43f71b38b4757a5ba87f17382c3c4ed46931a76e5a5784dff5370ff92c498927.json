@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO countdown_products (\n\t\t\t\t\tname, barcode, sku\n\t\t\t\t) SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[])\n\t\t\t\tON CONFLICT (sku) DO NOTHING\n\t\t\t\tRETURNING sku, id\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sku",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "43f71b38b4757a5ba87f17382c3c4ed46931a76e5a5784dff5370ff92c498927"
+}

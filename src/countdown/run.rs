@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs};
 
 use error_stack::{Report, ResultExt};
-use sqlx::{postgres::PgRow, PgPool, Row};
+use sqlx::{PgPool, Row};
 
 use crate::{
     countdown::{get_all_products, get_categories, COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT},
@@ -63,33 +63,27 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     let new_products_ids = if no_insert {
         vec![]
     } else {
-        let mut names: Vec<&str> = Vec::with_capacity(products.len());
-        let mut barcodes: Vec<&str> = Vec::with_capacity(products.len());
-        let mut skus: Vec<&str> = Vec::with_capacity(products.len());
+        let mut names = Vec::with_capacity(products.len());
+        let mut barcodes = Vec::with_capacity(products.len());
+        let mut skus = Vec::with_capacity(products.len());
 
         for p in &products {
-            names.push(&p.name);
-            barcodes.push(&p.barcode);
-            skus.push(&p.sku);
+            names.push(p.name.clone());
+            barcodes.push(p.barcode.clone());
+            skus.push(p.sku.clone());
         }
 
-        sqlx::query(
+        sqlx::query!(
             r"INSERT INTO countdown_products (
 					name, barcode, sku
-				) SELECT * FROM UNNEST($1, $2, $3)
+				) SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[])
 				ON CONFLICT (sku) DO NOTHING
 				RETURNING sku, id
 			",
+            &names[..],
+            &barcodes[..],
+            &skus[..]
         )
-        .bind(names)
-        .bind(barcodes)
-        .bind(skus)
-        .map(|row| {
-            let sku: String = row.get(0);
-            let id: i32 = row.get(1);
-
-            (sku, id)
-        })
         .fetch_all(&connection)
         .await
         .change_context(ApplicationError::NewProductsInsertionError)?
@@ -99,8 +93,8 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     // Map<sku, countdown_id>
     let mut new_skus = new_products_ids.into_iter().fold(
         HashMap::with_capacity(product_count),
-        |mut map, (sku, countdown_id)| {
-            map.insert(sku, countdown_id);
+        |mut map, product| {
+            map.insert(product.sku, product.id);
             map
         },
     );
@@ -110,12 +104,12 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             .iter()
             .filter_map(|p| new_skus.remove(&p.sku))
             .collect::<Vec<_>>();
-        sqlx::query(
+        sqlx::query!(
             r"INSERT INTO PRODUCTS (
 				countdown_id
-			) SELECT * FROM UNNEST($1)",
+			) SELECT * FROM UNNEST($1::integer[])",
+            &new_products[..]
         )
-        .bind(new_products)
         .execute(&connection)
         .await
         .change_context(ApplicationError::NewProductsInsertionError)?;
@@ -125,18 +119,12 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
 
     // upload all price data
     {
-        let mapped_product_ids = sqlx::query(
+        let mapped_product_ids = sqlx::query!(
             r"SELECT products.id, countdown_products.sku FROM products
 				INNER JOIN countdown_products
 				ON products.countdown_id = countdown_products.id
 				WHERE countdown_id IS NOT NULL",
         )
-        .map(|row: PgRow| {
-            let id: i32 = row.get(0);
-            let sku: String = row.get(1);
-
-            (id, sku)
-        })
         .fetch_all(&connection)
         .await
         .change_context(ApplicationError::PriceDataInsertionError)?;
@@ -151,18 +139,18 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         }
 
         let mut lost_skus = vec![];
-        for (product_id, sku) in mapped_product_ids {
+        for mapped_product in mapped_product_ids {
             // retrieve the cost associated with this sku
-            let product_cost = mapped_products.remove(&sku);
+            let product_cost = mapped_products.remove(&mapped_product.sku);
 
             // find the product
             match product_cost {
                 Some(cost) => {
-                    product_ids.push(product_id);
+                    product_ids.push(mapped_product.id);
                     cost_in_cents.push(cost);
-                    supermarket.push("countdown");
+                    supermarket.push("countdown".to_string());
                 }
-                None => lost_skus.push(sku),
+                None => lost_skus.push(mapped_product.sku),
             }
         }
 
@@ -186,16 +174,16 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             println!("Skipped inserting prices into database");
         } else {
             // now insert the rows
-            sqlx::query(
+            sqlx::query!(
                 "INSERT INTO prices (
 					product_id,
 					cost_in_cents,
 					supermarket
-				) SELECT * FROM UNNEST($1, $2, $3)",
+				) SELECT * FROM UNNEST($1::integer[], $2::integer[], $3::text[])",
+                &product_ids[..],
+                &cost_in_cents[..],
+                &supermarket[..]
             )
-            .bind(&product_ids)
-            .bind(&cost_in_cents)
-            .bind(&supermarket)
             .execute(&connection)
             .await
             .change_context(ApplicationError::PriceDataInsertionError)?;

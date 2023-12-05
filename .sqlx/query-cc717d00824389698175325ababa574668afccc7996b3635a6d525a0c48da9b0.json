@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO PRODUCTS (\n\t\t\t\tcountdown_id\n\t\t\t) SELECT * FROM UNNEST($1::integer[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc717d00824389698175325ababa574668afccc7996b3635a6d525a0c48da9b0"
+}

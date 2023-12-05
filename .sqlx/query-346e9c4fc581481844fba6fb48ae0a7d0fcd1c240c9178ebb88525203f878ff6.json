@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT products.id, countdown_products.sku FROM products\n\t\t\t\tINNER JOIN countdown_products\n\t\t\t\tON products.countdown_id = countdown_products.id\n\t\t\t\tWHERE countdown_id IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "sku",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "346e9c4fc581481844fba6fb48ae0a7d0fcd1c240c9178ebb88525203f878ff6"
+}

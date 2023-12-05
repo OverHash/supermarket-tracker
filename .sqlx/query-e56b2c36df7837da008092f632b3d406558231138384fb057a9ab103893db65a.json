@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO prices (\n\t\t\t\t\tproduct_id,\n\t\t\t\t\tcost_in_cents,\n\t\t\t\t\tsupermarket\n\t\t\t\t) SELECT * FROM UNNEST($1::integer[], $2::integer[], $3::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e56b2c36df7837da008092f632b3d406558231138384fb057a9ab103893db65a"
+}
