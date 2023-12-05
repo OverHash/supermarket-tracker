@@ -1,10 +1,13 @@
-use std::{collections::HashMap, fs};
+use std::fs;
 
 use error_stack::{Report, ResultExt};
 use sqlx::PgPool;
 
 use crate::{
-    countdown::{get_all_products, get_categories, COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT},
+    countdown::{
+        get_all_products, get_categories, get_off_sale_skus, save_prices, save_products,
+        COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT,
+    },
     error::ApplicationError,
     CACHE_PATH,
 };
@@ -12,8 +15,14 @@ use crate::{
 /// Runs the countdown scraper.
 ///
 /// `no_insert` indicates if the scraper should not insert data into the database.
-#[allow(clippy::too_many_lines)]
-pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<ApplicationError>> {
+///
+/// # Errors
+/// - If unable to create and perform HTTP tasks to countdown servers
+/// - If unable to retrieve all categories of products
+/// - If unable to retrieve all products
+/// - If unable to compute the off-sale skus
+/// - If unable to save prices
+pub async fn run(connection: PgPool, should_insert: bool) -> Result<(), Report<ApplicationError>> {
     let client = {
         let mut default_headers = reqwest::header::HeaderMap::new();
         default_headers.insert(
@@ -61,70 +70,40 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     .change_context(ApplicationError::CacheError)?;
 
     // create the products if not existing before
-    let new_products_ids = if no_insert {
-        vec![]
-    } else {
-        let mut names = Vec::with_capacity(products.len());
-        let mut barcodes = Vec::with_capacity(products.len());
-        let mut skus = Vec::with_capacity(products.len());
-
-        for p in &products {
-            names.push(p.name.clone());
-            barcodes.push(p.barcode.clone());
-            skus.push(p.sku.clone());
-        }
-
-        sqlx::query!(
-            r"INSERT INTO countdown_products (
-					name, barcode, sku
-				) SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[])
-				ON CONFLICT (sku) DO NOTHING
-				RETURNING sku, id
-			",
-            &names[..],
-            &barcodes[..],
-            &skus[..]
+    if should_insert {
+        save_products(
+            &connection,
+            products
+                .iter()
+                .map(|p| crate::countdown::Product {
+                    name: p.name.clone(),
+                    barcode: p.barcode.clone(),
+                    per_unit_price: p.per_unit_price,
+                    sku: p.sku.clone(),
+                })
+                .collect(),
         )
-        .fetch_all(&connection)
-        .await
-        .change_context(ApplicationError::NewProductsInsertionError)?
-    };
+        .await?;
+    }
 
-    let product_count = new_products_ids.len();
-    // Map<sku, countdown_id>
-    let mut new_skus = new_products_ids.into_iter().fold(
-        HashMap::with_capacity(product_count),
-        |mut map, product| {
-            map.insert(product.sku, product.id);
-            map
-        },
-    );
-
-    if !no_insert {
-        let new_products = products
-            .iter()
-            .filter_map(|p| new_skus.remove(&p.sku))
-            .collect::<Vec<_>>();
-        sqlx::query!(
-            r"INSERT INTO PRODUCTS (
-				countdown_id
-			) SELECT * FROM UNNEST($1::integer[])",
-            &new_products[..]
-        )
-        .execute(&connection)
-        .await
-        .change_context(ApplicationError::NewProductsInsertionError)?;
-
-        tracing::debug!("Found {product_count} new products");
+    // log how many items are now off-sale
+    let off_sale_skus = get_off_sale_skus(&connection, &products).await?;
+    if !off_sale_skus.is_empty() {
+        tracing::debug!(
+            "Failed to find {} previously known skus. These items are likely now off-sale",
+            off_sale_skus.len()
+        );
     }
 
     // upload all price data
+    save_prices(&connection, products, should_insert).await?;
+    /*
     {
         let mapped_product_ids = sqlx::query!(
             r"SELECT products.id, countdown_products.sku FROM products
-				INNER JOIN countdown_products
-				ON products.countdown_id = countdown_products.id
-				WHERE countdown_id IS NOT NULL",
+                INNER JOIN countdown_products
+                ON products.countdown_id = countdown_products.id
+                WHERE countdown_id IS NOT NULL",
         )
         .fetch_all(&connection)
         .await
@@ -132,35 +111,29 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
 
         let mut product_ids = Vec::with_capacity(products.len());
         let mut cost_in_cents = Vec::with_capacity(products.len());
-        let mut supermarket = Vec::with_capacity(products.len());
 
         let mut mapped_products = HashMap::with_capacity(mapped_product_ids.len());
         for product in &products {
             mapped_products.insert(&product.sku, product.per_unit_price);
         }
 
-        let mut lost_skus = vec![];
         for mapped_product in mapped_product_ids {
             // retrieve the cost associated with this sku
             let product_cost = mapped_products.remove(&mapped_product.sku);
 
             // find the product
-            match product_cost {
-                Some(cost) => {
-                    product_ids.push(mapped_product.id);
-                    cost_in_cents.push(cost);
-                    supermarket.push("countdown".to_string());
-                }
-                None => lost_skus.push(mapped_product.sku),
+            if let Some(cost) = product_cost {
+                product_ids.push(mapped_product.id);
+                cost_in_cents.push(cost);
             }
         }
 
         if !mapped_products.is_empty() {
             tracing::warn!(
-					"Failed to find {} products inserted in database. This may be the case if the `--no-insert` flag was run",
-					mapped_products.len()
-				);
-            if !no_insert {
+                    "Failed to find {} products inserted in database. This may be the case if the `--no-insert` flag was run",
+                    mapped_products.len()
+                );
+            if should_insert {
                 tracing::warn!(
                     "Products not found in database: {:?}",
                     mapped_products.keys()
@@ -168,34 +141,31 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             }
         }
 
-        if !lost_skus.is_empty() {
-            tracing::warn!(
-                "Failed to find {} skus, items are likely off-sale",
-                lost_skus.len()
-            );
-        }
-
-        if no_insert {
-            tracing::debug!("Skipped inserting prices into database");
-        } else {
+        if should_insert {
             // now insert the rows
             sqlx::query!(
                 "INSERT INTO prices (
-					product_id,
-					cost_in_cents,
-					supermarket
-				) SELECT * FROM UNNEST($1::integer[], $2::integer[], $3::text[])",
+                    product_id,
+                    cost_in_cents,
+                    supermarket
+                ) SELECT
+                    UNNEST($1::integer[]),
+                    UNNEST($2::integer[]),
+                    'countdown'
+                ",
                 &product_ids[..],
                 &cost_in_cents[..],
-                &supermarket[..]
             )
             .execute(&connection)
             .await
             .change_context(ApplicationError::PriceDataInsertionError)?;
 
             tracing::debug!("Inserted {} prices", product_ids.len());
+        } else {
+            tracing::debug!("Skipped inserting prices into database");
         };
 
         Ok(())
-    }
+    } */
+    Ok(())
 }

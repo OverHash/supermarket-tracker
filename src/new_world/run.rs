@@ -1,5 +1,5 @@
 use super::NEW_WORLD_BASE_URL;
-use error_stack::{Report, ResultExt};
+use error_stack::{Result, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -18,7 +18,11 @@ struct GetStoreList {
     stores: Vec<Store>,
 }
 
-pub async fn run() -> Result<(), Report<ApplicationError>> {
+/// Runs the New World scraper.
+///
+/// # Errors
+/// - If unable to retrieve all stores
+pub async fn run() -> Result<(), ApplicationError> {
     let client = Client::new();
 
     // retrieve all stores

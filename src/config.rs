@@ -12,21 +12,21 @@ use sqlx::postgres::PgConnectOptions;
 use crate::supermarket::{get_supermarket_type, Supermarket};
 
 pub struct Config {
-    pub(crate) application: ApplicationConfig,
-    pub(crate) database: DatabaseConfig,
+    pub application: ApplicationConfig,
+    pub database: DatabaseConfig,
 }
 
 #[allow(clippy::module_name_repetitions)]
 pub struct ApplicationConfig {
     /// The supermarket we are targeting to get price information for.
-    pub(crate) supermarket: Supermarket,
+    pub supermarket: Supermarket,
 }
 
 #[allow(clippy::module_name_repetitions)]
 pub struct DatabaseConfig {
     /// If we should insert information into the Postgres database, or if we
     /// are in read-only mode.
-    pub(crate) should_insert: bool,
+    pub should_insert: bool,
     /// The username to use when connect to the Postgres database.
     ///
     /// Common values include `postgres`.
@@ -132,6 +132,7 @@ impl DatabaseConfig {
     ///
     /// Because this string contains the database password, it is wrapped with
     /// the [`Secret`] type.
+    #[must_use]
     pub fn connection_string(&self) -> PgConnectOptions {
         PgConnectOptions::new()
             .application_name("supermarket-tracker")

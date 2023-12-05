@@ -1,32 +1,20 @@
-use std::time::Duration;
-
 use dotenvy::dotenv;
 use error_stack::{Result, ResultExt};
 use sqlx::postgres::PgPoolOptions;
 
-use crate::config::Config;
-use crate::error::ApplicationError;
-use crate::initialize_database::initialize_database;
-use crate::supermarket::Supermarket;
-use crate::telemetry::init_subscriber;
-
-pub const CACHE_PATH: &str = "cache.json";
-/// The amount of milliseconds to wait between performing iterations on the pages.
-const PAGE_ITERATION_INTERVAL: Duration = Duration::from_millis(500);
-/// The amount of requests to perform in parallel.
-const CONCURRENT_REQUESTS: i64 = 12;
-
-mod config;
-mod countdown;
-mod error;
-mod initialize_database;
-mod new_world;
-mod supermarket;
-mod telemetry;
+use supermarket_tracker::{
+    config::Config,
+    countdown,
+    error::ApplicationError,
+    initialize_database::initialize_database,
+    new_world,
+    supermarket::Supermarket,
+    telemetry::{get_tracing_subscriber, init_subscriber},
+};
 
 #[tokio::main]
 async fn main() -> Result<(), ApplicationError> {
-    let subscriber = telemetry::get_tracing_subscriber(std::io::stdout);
+    let subscriber = get_tracing_subscriber(std::io::stdout);
     init_subscriber(subscriber);
 
     // ignore any error attempting to load .env file

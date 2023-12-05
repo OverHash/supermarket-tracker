@@ -36,7 +36,7 @@ prices
 CREATE TABLE prices (
 	id SERIAL PRIMARY KEY,
 	product_id INTEGER NOT NULL,
-	time TIMESTAMPTZ NOT NULL,
+	time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	cost_in_cents INTEGER NOT NULL,
 	supermarket VARCHAR(255) NOT NULL,
 

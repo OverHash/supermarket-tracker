@@ -50,6 +50,10 @@ impl fmt::Display for GetCategoriesError {
 impl Context for GetCategoriesError {}
 
 /// Retrieves all the categories in the store.
+///
+/// # Errors
+/// - If unable to get the Countdown shell to use for API requests
+/// - If unable to decode the html countdown response
 pub async fn get_categories(
     client: &Client,
     base_url: &str,

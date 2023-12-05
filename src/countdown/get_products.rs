@@ -4,6 +4,7 @@ use error_stack::{Context, Result, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 use tokio::{sync::Mutex, task};
+use tracing::Span;
 
 use crate::{countdown::COUNTDOWN_BASE_URL, CONCURRENT_REQUESTS, PAGE_ITERATION_INTERVAL};
 
@@ -86,7 +87,8 @@ pub struct GetProductResponse {
 	skip_all,
 	fields(
 		%page_number,
-		%category
+		%category,
+		product_count_retrieved = tracing::field::Empty
 	)
 )]
 pub async fn get_products(
@@ -140,6 +142,8 @@ pub async fn get_products(
 
     let is_end =
         page_number * i64::from(PAGE_SIZE) > res.products.total_items.into() || products.is_empty();
+
+    Span::current().record("product_count_retrieved", products.len());
 
     Ok(GetProductResponse {
         products,
