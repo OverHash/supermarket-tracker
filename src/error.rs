@@ -5,11 +5,8 @@ use error_stack::Context;
 #[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub enum ApplicationError {
-    /// Invalid user option provided to the binary
-    InvalidOption {
-        /// The option which was invalid
-        option: String,
-    },
+    /// Failed to load configuration data
+    Config,
     /// Failed to connect to the database
     DatabaseConnectError,
     /// Failed to initialize the database with the initial tables
@@ -31,7 +28,7 @@ pub enum ApplicationError {
 impl fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ApplicationError::InvalidOption { option } => write!(f, "Invalid option '{option}'"),
+            ApplicationError::Config => write!(f, "Failed to load configuration"),
             ApplicationError::DatabaseConnectError => write!(f, "Failed to connect to database"),
             ApplicationError::DatabaseInitializeError => {
                 write!(f, "Failed to initialize database")
