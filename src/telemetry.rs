@@ -14,9 +14,8 @@ where
     // of our lifetime parameter `'a`
     Sink: for<'a> MakeWriter<'a> + Send + Sync + 'static,
 {
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        "info,supermarket-tracker=debug,tower_http=debug,axum::rejection=trace".into()
-    });
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "info,supermarket_tracker=debug".into());
     let formatting_layer = tracing_subscriber::fmt::layer()
         .with_writer(sink)
         .with_target(true)

@@ -80,6 +80,15 @@ pub struct GetProductResponse {
 /// Retrieves a list of products
 ///
 /// Uses the `/products?target=browse` endpoint.
+#[tracing::instrument(
+	name = "get products",
+	level = "trace",
+	skip_all,
+	fields(
+		%page_number,
+		%category
+	)
+)]
 pub async fn get_products(
     client: &Client,
     base_url: &str,
@@ -160,7 +169,6 @@ async fn perform_task(
             break;
         };
 
-        eprintln!("Getting page {} for category {}", task.page, task.category);
         let res = get_products(&client, COUNTDOWN_BASE_URL, task.page, &task.category).await?;
 
         // handle the add_tasks callback if it existed
@@ -201,6 +209,9 @@ impl Context for ProductRetrievalError {}
 /// Yields for [`PAGE_ITERATION_INTERVAL`] between requests, to prevent rate-limiting.
 ///
 /// Runs [`CONCURRENT_REQUESTS`] requests at once.
+#[tracing::instrument(name = "get_all_products", skip_all, fields(
+	num_categories = %categories.len()
+))]
 pub async fn get_all_products(
     client: reqwest::Client,
     categories: Vec<Category>,

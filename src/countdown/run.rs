@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs};
 
 use error_stack::{Report, ResultExt};
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 
 use crate::{
     countdown::{get_all_products, get_categories, COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT},
@@ -33,12 +33,12 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     }?;
 
     // retrieve categories
-    println!("Retrieving all categories...");
+    tracing::debug!("Retrieving all categories...");
     let categories = get_categories(&client, COUNTDOWN_BASE_URL)
         .await
         .change_context(ApplicationError::CategoryRetrieval)?;
-    println!(
-        "{}",
+    tracing::debug!(
+        "Retrieved the following categories: {}",
         categories
             .iter()
             .map(std::string::ToString::to_string)
@@ -47,10 +47,11 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
     );
 
     // retrieve products from all categories concurrently
+    tracing::debug!("Retrieving all products. This may take a while...");
     let products = get_all_products(client, categories)
         .await
         .change_context(ApplicationError::ProductRetrieval)?;
-    println!("{:?} products were found", products.len());
+    tracing::debug!("{:?} products were found", products.len());
 
     // cache the result
     fs::write(
@@ -114,7 +115,7 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         .await
         .change_context(ApplicationError::NewProductsInsertionError)?;
 
-        println!("Found {product_count} new products");
+        tracing::debug!("Found {product_count} new products");
     }
 
     // upload all price data
@@ -155,23 +156,27 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
         }
 
         if !mapped_products.is_empty() {
-            println!(
+            tracing::warn!(
 					"Failed to find {} products inserted in database. This may be the case if the `--no-insert` flag was run",
 					mapped_products.len()
 				);
-            println!(
-                "Products not found in database: {:?}",
-                mapped_products.keys()
+            if !no_insert {
+                tracing::warn!(
+                    "Products not found in database: {:?}",
+                    mapped_products.keys()
+                );
+            }
+        }
+
+        if !lost_skus.is_empty() {
+            tracing::warn!(
+                "Failed to find {} skus, items are likely off-sale",
+                lost_skus.len()
             );
         }
 
-        println!(
-            "Failed to find {} skus, items are likely off-sale",
-            lost_skus.len()
-        );
-
         if no_insert {
-            println!("Skipped inserting prices into database");
+            tracing::debug!("Skipped inserting prices into database");
         } else {
             // now insert the rows
             sqlx::query!(
@@ -188,7 +193,7 @@ pub async fn run(connection: PgPool, no_insert: bool) -> Result<(), Report<Appli
             .await
             .change_context(ApplicationError::PriceDataInsertionError)?;
 
-            println!("Inserted {} prices", product_ids.len());
+            tracing::debug!("Inserted {} prices", product_ids.len());
         };
 
         Ok(())

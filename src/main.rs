@@ -51,7 +51,7 @@ async fn main() -> Result<(), ApplicationError> {
         .await
         .change_context(ApplicationError::DatabaseConnectError)?;
 
-    println!("Connected to database");
+    tracing::debug!("Connected to database");
     initialize_database(&connection)
         .await
         .change_context(ApplicationError::DatabaseInitializeError)?;
