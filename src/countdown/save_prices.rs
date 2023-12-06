@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use error_stack::{Result, ResultExt};
 use sqlx::PgPool;
-use tracing::{debug, trace, warn};
+use tracing::{debug, warn};
 
 use crate::error::ApplicationError;
 
