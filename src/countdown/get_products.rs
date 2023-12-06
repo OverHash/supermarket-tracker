@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, fmt, sync::Arc};
+use std::{
+    collections::{HashSet, VecDeque},
+    fmt,
+    sync::Arc,
+};
 
 use error_stack::{Context, Result, ResultExt};
 use reqwest::Client;
@@ -69,7 +73,7 @@ const PAGE_SIZE: i32 = 120;
 #[derive(Debug)]
 pub struct GetProductResponse {
     /// The current page's products
-    pub products: Vec<Product>,
+    pub products: HashSet<Product>,
     /// The next page number, or None if we have reached the end.
     pub next_page: Option<i64>,
     /// The total amount of pages that may exist.
@@ -138,7 +142,7 @@ pub async fn get_products(
             }),
             _ => None,
         })
-        .collect::<Vec<Product>>();
+        .collect::<HashSet<Product>>();
 
     let is_end =
         page_number * i64::from(PAGE_SIZE) > res.products.total_items.into() || products.is_empty();
@@ -164,8 +168,8 @@ struct PageRequestTask {
 async fn perform_task(
     client: Client,
     tasks: Arc<Mutex<VecDeque<PageRequestTask>>>,
-) -> Result<Vec<Product>, reqwest::Error> {
-    let mut total_products = Vec::new();
+) -> Result<HashSet<Product>, reqwest::Error> {
+    let mut total_products = HashSet::new();
 
     loop {
         let task = tasks.lock().await.pop_front();
@@ -181,7 +185,7 @@ async fn perform_task(
             tasks.lock().await.extend(new_tasks);
         }
 
-        total_products.extend(res.products.into_iter());
+        total_products.extend(res.products);
 
         // give the API some time to rest
         // so we don't get rate limited
@@ -219,7 +223,7 @@ impl Context for ProductRetrievalError {}
 pub async fn get_all_products(
     client: reqwest::Client,
     categories: Vec<Category>,
-) -> Result<Vec<Product>, ProductRetrievalError> {
+) -> Result<HashSet<Product>, ProductRetrievalError> {
     let tasks: Arc<Mutex<VecDeque<PageRequestTask>>> = Arc::new(Mutex::new(
         categories
             .into_iter()

@@ -54,11 +54,9 @@ pub async fn save_prices(
         let product_id = product_sku_to_id.remove(&product.sku);
 
         let Some(id) = product_id else {
-            // TODO: once #4 is closed, we can increase this to warn!
-            trace!(
+            warn!(
                 "Failed to get stored product ID for sku '{}' ('{}')",
-                product.sku,
-                product.name
+                product.sku, product.name
             );
             continue;
         };

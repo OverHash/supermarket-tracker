@@ -56,10 +56,13 @@ pub async fn run(connection: PgPool, should_insert: bool) -> Result<(), Report<A
     );
 
     // retrieve products from all categories concurrently
+    // we turn from a HashSet<Product> into a Vec<Product> after
     tracing::debug!("Retrieving all products. This may take a while...");
     let products = get_all_products(client, categories)
         .await
-        .change_context(ApplicationError::ProductRetrieval)?;
+        .change_context(ApplicationError::ProductRetrieval)?
+        .into_iter()
+        .collect::<Vec<_>>();
     tracing::debug!("{:?} products were found", products.len());
 
     // cache the result
