@@ -132,22 +132,14 @@ pub async fn get_products(
                 price,
                 sku,
                 ..
-            } => {
-                if &sku == "133211" {
-                    tracing::warn!(
-                        "Found {name} with price {} and barcode {barcode}",
-                        price.sale_price
-                    );
-                }
-                Some(Product {
-                    name,
-                    barcode,
-                    sku,
-                    // convert to cents from dollars
-                    #[allow(clippy::cast_possible_truncation)]
-                    per_unit_price: (price.sale_price * 100.0).round() as i32,
-                })
-            }
+            } => Some(Product {
+                name,
+                barcode,
+                sku,
+                // convert to cents from dollars
+                #[allow(clippy::cast_possible_truncation)]
+                per_unit_price: (price.sale_price * 100.0).round() as i32,
+            }),
             _ => None,
         })
         .collect::<HashSet<Product>>();

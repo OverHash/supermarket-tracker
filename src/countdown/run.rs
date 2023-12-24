@@ -39,6 +39,7 @@ pub async fn run(connection: PgPool, should_insert: bool) -> Result<(), Report<A
         reqwest::Client::builder()
             .user_agent(DEFAULT_USER_AGENT)
             .default_headers(default_headers)
+            .cookie_store(true)
             .build()
             .change_context(ApplicationError::HttpError)
     }?;
