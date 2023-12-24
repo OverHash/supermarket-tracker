@@ -15,12 +15,14 @@ use super::Product;
 	skip_all,
 	fields(
 		product_count = %products.len(),
-		skip_insert = %!should_insert
+		skip_insert = %!should_insert,
+		%store_id
 	)
 )]
 pub async fn save_prices(
     pool: &PgPool,
     products: Vec<Product>,
+    store_id: i32,
     should_insert: bool,
 ) -> Result<(), ApplicationError> {
     // We perform the bulk save by first retrieving all the product IDs in
@@ -84,14 +86,15 @@ pub async fn save_prices(
             "INSERT INTO prices (
 				product_id,
 				cost_in_cents,
-				supermarket
+				store_id
 			) SELECT
 				UNNEST($1::integer[]),
 				UNNEST($2::integer[]),
-				'countdown'
+				$3
 			",
             &product_ids[..],
             &cost_in_cents[..],
+            store_id
         )
         .execute(pool)
         .await

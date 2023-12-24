@@ -23,6 +23,10 @@ pub enum ApplicationError {
     NewProductsInsertionError,
     /// Failed to insert prices of products into the database
     PriceDataInsertionError,
+    /// Failed to set the location to a specified store
+    SetLocation,
+    /// Failed to save the store to the database
+    SaveStore,
 }
 
 impl fmt::Display for ApplicationError {
@@ -48,6 +52,12 @@ impl fmt::Display for ApplicationError {
             }
             ApplicationError::PriceDataInsertionError => {
                 write!(f, "Failed to write price feed into database")
+            }
+            ApplicationError::SetLocation => {
+                write!(f, "Failed to set location of store")
+            }
+            ApplicationError::SaveStore => {
+                write!(f, "Failed to save the store to the database")
             }
         }
     }

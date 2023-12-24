@@ -132,14 +132,22 @@ pub async fn get_products(
                 price,
                 sku,
                 ..
-            } => Some(Product {
-                name,
-                barcode,
-                sku,
-                // convert to cents from dollars
-                #[allow(clippy::cast_possible_truncation)]
-                per_unit_price: (price.sale_price * 100.0).round() as i32,
-            }),
+            } => {
+                if &sku == "133211" {
+                    tracing::warn!(
+                        "Found {name} with price {} and barcode {barcode}",
+                        price.sale_price
+                    );
+                }
+                Some(Product {
+                    name,
+                    barcode,
+                    sku,
+                    // convert to cents from dollars
+                    #[allow(clippy::cast_possible_truncation)]
+                    per_unit_price: (price.sale_price * 100.0).round() as i32,
+                })
+            }
             _ => None,
         })
         .collect::<HashSet<Product>>();
@@ -221,7 +229,7 @@ impl Context for ProductRetrievalError {}
 	num_categories = %categories.len()
 ))]
 pub async fn get_all_products(
-    client: reqwest::Client,
+    client: &reqwest::Client,
     categories: Vec<Category>,
 ) -> Result<HashSet<Product>, ProductRetrievalError> {
     let tasks: Arc<Mutex<VecDeque<PageRequestTask>>> = Arc::new(Mutex::new(

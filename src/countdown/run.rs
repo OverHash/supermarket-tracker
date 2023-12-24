@@ -6,11 +6,13 @@ use sqlx::PgPool;
 use crate::{
     countdown::{
         get_all_products, get_categories, get_off_sale_skus, save_prices, save_products,
-        COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT,
+        save_store, set_location, COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT,
     },
     error::ApplicationError,
     CACHE_PATH,
 };
+
+use super::set_fulfillment_method;
 
 /// Runs the countdown scraper.
 ///
@@ -41,65 +43,87 @@ pub async fn run(connection: PgPool, should_insert: bool) -> Result<(), Report<A
             .change_context(ApplicationError::HttpError)
     }?;
 
-    // retrieve categories
-    tracing::debug!("Retrieving all categories...");
-    let categories = get_categories(&client, COUNTDOWN_BASE_URL)
+    set_fulfillment_method(&client, COUNTDOWN_BASE_URL)
         .await
-        .change_context(ApplicationError::CategoryRetrieval)?;
-    tracing::debug!(
-        "Retrieved the following categories: {}",
-        categories
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+        .change_context(ApplicationError::SetLocation)
+        .attach_printable("When setting fulfillment method to pickup")?;
 
-    // retrieve products from all categories concurrently
-    // we turn from a HashSet<Product> into a Vec<Product> after
-    tracing::debug!("Retrieving all products. This may take a while...");
-    let products = get_all_products(client, categories)
-        .await
-        .change_context(ApplicationError::ProductRetrieval)?
-        .into_iter()
-        .collect::<Vec<_>>();
-    tracing::debug!("{:?} products were found", products.len());
+    // search for a North Island and South Island countdown
+    // since North Island and South Island have differing prices.
+    // we pick the largest countdowns in each island.
+    for (store_id, store_name) in [
+        (1_906_076, "Countdown Mt Eden".to_string()),
+        (1_352_617, "Woolworths Hornby".to_string()),
+    ] {
+        set_location(&client, COUNTDOWN_BASE_URL, store_id)
+            .await
+            .change_context(ApplicationError::SetLocation)?;
 
-    // cache the result
-    fs::write(
-        CACHE_PATH,
-        serde_json::to_string_pretty(&products).change_context(ApplicationError::CacheError)?,
-    )
-    .change_context(ApplicationError::CacheError)?;
-
-    // create the products if not existing before
-    if should_insert {
-        save_products(
-            &connection,
-            products
-                .iter()
-                .map(|p| crate::countdown::Product {
-                    name: p.name.clone(),
-                    barcode: p.barcode.clone(),
-                    per_unit_price: p.per_unit_price,
-                    sku: p.sku.clone(),
-                })
-                .collect(),
-        )
-        .await?;
-    }
-
-    // log how many items are now off-sale
-    let off_sale_skus = get_off_sale_skus(&connection, &products).await?;
-    if !off_sale_skus.is_empty() {
+        // retrieve categories
+        tracing::debug!("Retrieving all categories...");
+        let categories = get_categories(&client, COUNTDOWN_BASE_URL)
+            .await
+            .change_context(ApplicationError::CategoryRetrieval)?;
         tracing::debug!(
-            "Failed to find {} previously known skus. These items are likely now off-sale",
-            off_sale_skus.len()
+            "Retrieved the following categories: {}",
+            categories
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
         );
-    }
 
-    // upload all price data
-    save_prices(&connection, products, should_insert).await?;
+        // retrieve products from all categories concurrently
+        // we turn from a HashSet<Product> into a Vec<Product> after
+        tracing::debug!("Retrieving all products. This may take a while...");
+        let products = get_all_products(&client, categories)
+            .await
+            .change_context(ApplicationError::ProductRetrieval)?
+            .into_iter()
+            .collect::<Vec<_>>();
+        tracing::debug!("{:?} products were found", products.len());
+
+        // cache the result
+        fs::write(
+            CACHE_PATH,
+            serde_json::to_string_pretty(&products).change_context(ApplicationError::CacheError)?,
+        )
+        .change_context(ApplicationError::CacheError)?;
+
+        if should_insert {
+            // create the products if not existing before
+            save_products(
+                &connection,
+                products
+                    .iter()
+                    .map(|p| crate::countdown::Product {
+                        name: p.name.clone(),
+                        barcode: p.barcode.clone(),
+                        per_unit_price: p.per_unit_price,
+                        sku: p.sku.clone(),
+                    })
+                    .collect(),
+            )
+            .await?;
+        }
+
+        // log how many items are now off-sale
+        let off_sale_skus = get_off_sale_skus(&connection, &products).await?;
+        if !off_sale_skus.is_empty() {
+            tracing::debug!(
+                "Failed to find {} previously known skus. These items are likely now off-sale",
+                off_sale_skus.len()
+            );
+        }
+
+        // store the store if it has not been created before
+        let store_id = save_store(&connection, store_id, store_name)
+            .await
+            .change_context(ApplicationError::SaveStore)?;
+
+        // upload all price data
+        save_prices(&connection, products, store_id, should_insert).await?;
+    }
 
     Ok(())
 }
