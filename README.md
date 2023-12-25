@@ -2,6 +2,9 @@
 
 Tracks supermarket prices across New Zealand online supermarkets.
 
+Currently Countdown prices can be fetched, with the application fetching both
+Countdown Mt Eden and Woolsworth Hornby store prices.
+
 ## Starting the application
 
 - Setup relevant environment variables (a `.env` file can be used for convenience, see [`.env.example`](env.example))
