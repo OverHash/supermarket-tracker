@@ -53,16 +53,18 @@ enum ItemResponse {
 
 #[allow(dead_code)]
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct ProductPrice {
     /// The normal price of the product.
-    original_price: f32,
+    #[serde(rename = "originalPrice")]
+    original: f32,
     /// The current price of the product.
     ///
     /// Equivalent to `original_price - save_price`.
-    sale_price: f32,
+    #[serde(rename = "salePrice")]
+    sale: f32,
     /// The total amount on sale by purchasing this product.
-    save_price: f32,
+    #[serde(rename = "savePrice")]
+    save: f32,
 }
 
 /// The size amount of items to query for each page.
@@ -138,7 +140,7 @@ pub async fn get_products(
                 sku,
                 // convert to cents from dollars
                 #[allow(clippy::cast_possible_truncation)]
-                per_unit_price: (price.sale_price * 100.0).round() as i32,
+                per_unit_price: (price.sale * 100.0).round() as i32,
             }),
             _ => None,
         })
