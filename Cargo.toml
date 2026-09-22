@@ -4,6 +4,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 name = "supermarket-tracker"
 publish = false
+repository = "https://github.com/OverHash/supermarket-tracker"
 version = "0.1.0"
 
 [lib]
@@ -42,3 +43,12 @@ cargo = "deny"
 pedantic = "deny"
 
 multiple_crate_versions = { level = "allow", priority = 1 }
+
+# Config for dist (cargo-dist)
+[package.metadata.dist]
+dist = true
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

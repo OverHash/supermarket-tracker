@@ -1,0 +1,3 @@
+- name: Use checked-in SQLx query metadata
+  shell: bash
+  run: echo "SQLX_OFFLINE=true" >> "$GITHUB_ENV"
