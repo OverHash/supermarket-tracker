@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO countdown_products (\n\t\t\t\t\tname, barcode, sku\n\t\t\t\t) SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[])\n\t\t\t\tON CONFLICT (sku) DO NOTHING\n\t\t\t\tRETURNING sku, id\n\t\t\t",
+  "query": "\n\t\tINSERT INTO countdown_products (name, barcode, sku)\n\t\t\tSELECT * FROM UNNEST ($1::text[], $2::text[], $3::text[])\n\t\t\tON CONFLICT (sku) DO NOTHING\n\t\t\tRETURNING sku, id\n\t\t",
   "describe": {
     "columns": [
       {
@@ -26,5 +26,5 @@
       false
     ]
   },
-  "hash": "43f71b38b4757a5ba87f17382c3c4ed46931a76e5a5784dff5370ff92c498927"
+  "hash": "860131eaa26a33b2b746491010e61be688c7d0e95f06f541fc45e265bd451586"
 }

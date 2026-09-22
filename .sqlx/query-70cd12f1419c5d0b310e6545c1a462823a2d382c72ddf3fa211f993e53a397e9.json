@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO countdown_stores (\n\t\t\tid, name ) VALUES (\n\t\t\t\t$1, $2\n\t\t\t) ON CONFLICT DO NOTHING\n\t\t\tRETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "70cd12f1419c5d0b310e6545c1a462823a2d382c72ddf3fa211f993e53a397e9"
+}

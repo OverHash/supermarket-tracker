@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO prices (\n\t\t\t\tproduct_id,\n\t\t\t\tcost_in_cents,\n\t\t\t\tstore_id\n\t\t\t) SELECT\n\t\t\t\tUNNEST($1::integer[]),\n\t\t\t\tUNNEST($2::integer[]),\n\t\t\t\t$3\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e90b5a53a228fbdd9314014337cd03d9380a3a141ea3124bb2fe9ef1fce066f"
+}

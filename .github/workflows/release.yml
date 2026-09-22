@@ -7,34 +7,16 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  SQLX_VERSION: ^0.7
+  SQLX_VERSION: ^0.9
 
 jobs:
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: true
-          prerelease: false
-
   build:
-    needs: ["create-release"]
     strategy:
       fail-fast: false
       matrix:
         include:
           - host: linux
-            os: ubuntu-22.04
+            os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             label: linux
 
@@ -59,22 +41,21 @@ jobs:
       BIN: supermarket_tracker
       SQLX_OFFLINE: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Get Version from Tag
         shell: bash
         # https://github.community/t/how-to-get-just-the-tag-name/16241/7#M1027
         run: |
-          echo "PROJECT_VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-          echo "Version is: ${{ env.PROJECT_VERSION }}"
+          project_version="${GITHUB_REF#refs/tags/v}"
+          echo "PROJECT_VERSION=$project_version" >> "$GITHUB_ENV"
+          echo "Version is: $project_version"
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           toolchain: stable
           target: ${{ matrix.target }}
-          override: true
-          profile: minimal
 
       - name: Build Release
         run: cargo build --release --locked --verbose --target ${{ matrix.target }}
@@ -95,25 +76,38 @@ jobs:
           if [ "${{ matrix.host }}" = "windows" ]; then
             cp "output/${{ matrix.target }}/release/$BIN.exe" staging/
             cd staging
-            7z a ../release.zip *
+            7z a ../release.zip ./*
           else
             cp "output/${{ matrix.target }}/release/$BIN" staging/
             cd staging
-            zip ../release.zip *
+            zip ../release.zip ./*
           fi
 
-      - name: Upload Archive to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: release.zip
-          asset_name: ${{ env.BIN }}-${{ env.PROJECT_VERSION }}-${{ matrix.label }}.zip
-          asset_content_type: application/octet-stream
-
       - name: Upload Archive to Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.BIN }}-${{ env.PROJECT_VERSION }}-${{ matrix.label }}.zip
           path: release.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish draft release
+    needs: ["build"]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+
+      - name: Publish draft release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: true
+          prerelease: false
+          files: artifacts/**/*.zip
+          fail_on_unmatched_files: true

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO stores (\nsupermarket, countdown_store_id\n) VALUES (\n'Countdown', $1\n) RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "708cc5d512378283cbdb3eb0aa3e75727954546100b776d44b66191aa989b742"
+}

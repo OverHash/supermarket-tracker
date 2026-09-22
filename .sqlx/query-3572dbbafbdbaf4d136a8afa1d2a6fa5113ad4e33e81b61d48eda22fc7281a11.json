@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\tSELECT sku FROM countdown_products\n\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sku",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3572dbbafbdbaf4d136a8afa1d2a6fa5113ad4e33e81b61d48eda22fc7281a11"
+}

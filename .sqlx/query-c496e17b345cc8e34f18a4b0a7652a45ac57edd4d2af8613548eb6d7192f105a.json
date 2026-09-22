@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT products.id, countdown_products.sku FROM products\n\t\t\t\tINNER JOIN countdown_products\n\t\t\t\tON products.countdown_id = countdown_products.id\n\t\t\t\tWHERE countdown_id IS NOT NULL",
+  "query": "SELECT products.id, countdown_products.sku FROM products\n\t\t\tINNER JOIN countdown_products\n\t\t\tON products.countdown_id = countdown_products.id\n\t\t\tWHERE countdown_id IS NOT NULL",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "346e9c4fc581481844fba6fb48ae0a7d0fcd1c240c9178ebb88525203f878ff6"
+  "hash": "c496e17b345cc8e34f18a4b0a7652a45ac57edd4d2af8613548eb6d7192f105a"
 }
