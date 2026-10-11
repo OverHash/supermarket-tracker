@@ -1,9 +1,9 @@
 use tokio::task::JoinHandle;
-use tracing::{subscriber::set_global_default, Span, Subscriber};
+use tracing::{Span, Subscriber, subscriber::set_global_default};
 use tracing_subscriber::{
-    fmt::{format::FmtSpan, MakeWriter},
-    layer::SubscriberExt,
     EnvFilter, Registry,
+    fmt::{MakeWriter, format::FmtSpan},
+    layer::SubscriberExt,
 };
 
 /// Composes multiple layers into a `tracing`'s subscriber.
