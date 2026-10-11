@@ -98,7 +98,7 @@ pub async fn get_products(
 ) -> Result<GetProductResponse, reqwest::Error> {
     // our Category contains url information
     // but we only want the last part of the url
-    let category_url_part = category.url.split('/').last();
+    let category_url_part = category.url.split('/').next_back();
 
     let res: ProductsResponse = client
         .get(format!("{base_url}/products"))
