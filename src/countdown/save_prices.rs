@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use error_stack::{Result, ResultExt};
+use error_stack::{Report, ResultExt};
 use sqlx::PgPool;
 use tracing::{debug, warn};
 
@@ -24,7 +24,7 @@ pub async fn save_prices(
     products: Vec<Product>,
     store_id: i32,
     should_insert: bool,
-) -> Result<(), ApplicationError> {
+) -> Result<(), Report<ApplicationError>> {
     // We perform the bulk save by first retrieving all the product IDs in
     // the Postgres database that are under the 'countdown' supermarket.
     // In the future, we might have to look at optimizing this in some other
@@ -69,9 +69,9 @@ pub async fn save_prices(
 
     if !product_sku_to_id.is_empty() {
         warn!(
-				"Failed to find {} products inserted in database. This may be the case if the `--no-insert` flag was run",
-				product_sku_to_id.len()
-			);
+            "Failed to find {} products inserted in database. This may be the case if the `--no-insert` flag was run",
+            product_sku_to_id.len()
+        );
         if should_insert {
             warn!(
                 "Products not found in database: {:?}",

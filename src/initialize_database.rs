@@ -1,4 +1,3 @@
-use error_stack::Result;
 use sqlx::{Pool, Postgres};
 
 /// Initializes the database by performing necessary migrations.

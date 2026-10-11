@@ -4,12 +4,12 @@ use error_stack::{Report, ResultExt};
 use sqlx::PgPool;
 
 use crate::{
+    CACHE_PATH,
     countdown::{
-        get_all_products, get_categories, get_off_sale_skus, save_prices, save_products,
-        save_store, set_location, COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT,
+        COUNTDOWN_BASE_URL, DEFAULT_USER_AGENT, get_all_products, get_categories,
+        get_off_sale_skus, save_prices, save_products, save_store, set_location,
     },
     error::ApplicationError,
-    CACHE_PATH,
 };
 
 use super::set_fulfillment_method;
@@ -47,7 +47,7 @@ pub async fn run(connection: PgPool, should_insert: bool) -> Result<(), Report<A
     set_fulfillment_method(&client, COUNTDOWN_BASE_URL)
         .await
         .change_context(ApplicationError::SetLocation)
-        .attach_printable("When setting fulfillment method to pickup")?;
+        .attach("When setting fulfillment method to pickup")?;
 
     // search for a North Island and South Island countdown
     // since North Island and South Island have differing prices.

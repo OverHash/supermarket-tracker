@@ -1,5 +1,5 @@
 use super::NEW_WORLD_BASE_URL;
-use error_stack::{Result, ResultExt};
+use error_stack::{Report, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -22,7 +22,7 @@ struct GetStoreList {
 ///
 /// # Errors
 /// - If unable to retrieve all stores
-pub async fn run() -> Result<(), ApplicationError> {
+pub async fn run() -> Result<(), Report<ApplicationError>> {
     let client = Client::new();
 
     // retrieve all stores

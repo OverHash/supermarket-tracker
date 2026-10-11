@@ -1,15 +1,16 @@
 use std::{
     collections::HashSet,
     env,
+    error::Error,
     ffi::OsStr,
     fmt::{Debug, Display},
 };
 
-use error_stack::{Context, Result, ResultExt};
-use secrecy::{ExposeSecret, Secret};
+use error_stack::{Report, ResultExt};
+use secrecy::{ExposeSecret, SecretString};
 use sqlx::postgres::PgConnectOptions;
 
-use crate::supermarket::{get_supermarket_type, Supermarket};
+use crate::supermarket::{Supermarket, get_supermarket_type};
 
 pub struct Config {
     pub application: ApplicationConfig,
@@ -32,7 +33,7 @@ pub struct DatabaseConfig {
     /// Common values include `postgres`.
     username: String,
     /// The password to use when connecting to the Postgres database.
-    password: Secret<String>,
+    password: SecretString,
     /// The host to use to connect to the database. Commonly `localhost`.
     host: String,
     /// The name of the database to use. Commonly `supermarket_tracker`.
@@ -60,22 +61,22 @@ impl Display for ConfigError {
         }
     }
 }
-impl Context for ConfigError {}
+impl Error for ConfigError {}
 
 impl Config {
     /// Reads configuration values from environment and arguments passed to the application.
     ///
     /// # Errors
     /// - If unable to load a section of the config.
-    pub fn read_from_env() -> Result<Self, ConfigError> {
+    pub fn read_from_env() -> Result<Self, Report<ConfigError>> {
         dotenvy::dotenv().ok();
         let args = env::args().skip(1).collect::<Vec<_>>();
 
         Ok(Self {
             application: ApplicationConfig::read_from_env(&args)
-                .attach_printable("When loading application configuration")?,
+                .attach("When loading application configuration")?,
             database: DatabaseConfig::read_from_env(&args)
-                .attach_printable("When loading database configuration")?,
+                .attach("When loading database configuration")?,
         })
     }
 }
@@ -86,7 +87,7 @@ impl ApplicationConfig {
     ///
     /// # Errors
     /// Errors if the user provides an invalid `--supermarket` option.
-    fn read_from_env(args: &[String]) -> Result<Self, ConfigError> {
+    fn read_from_env(args: &[String]) -> Result<Self, Report<ConfigError>> {
         let supermarket =
             get_supermarket_type(args).change_context(ConfigError::InvalidOption {
                 option: "--supermarket".to_string(),
@@ -96,7 +97,7 @@ impl ApplicationConfig {
     }
 }
 
-fn load_env<U>(variable: U) -> Result<String, ConfigError>
+fn load_env<U>(variable: U) -> Result<String, Report<ConfigError>>
 where
     U: AsRef<OsStr> + Into<String> + Clone,
 {
@@ -108,9 +109,9 @@ where
 impl DatabaseConfig {
     /// Reads the database configuration from environment variables passed as
     /// the primary argument.
-    fn read_from_env(args: &[String]) -> Result<Self, ConfigError> {
+    fn read_from_env(args: &[String]) -> Result<Self, Report<ConfigError>> {
         let user = load_env("DATABASE_USER")?;
-        let password = load_env("DATABASE_PASSWORD").map(Secret::new)?;
+        let password = load_env("DATABASE_PASSWORD").map(SecretString::from)?;
         let host = load_env("DATABASE_HOST")?;
         let name = load_env("DATABASE_NAME")?;
 
@@ -127,11 +128,7 @@ impl DatabaseConfig {
         })
     }
 
-    /// Generates the Postgres connection string to use to connect to the
-    /// database.
-    ///
-    /// Because this string contains the database password, it is wrapped with
-    /// the [`Secret`] type.
+    /// Generates the Postgres connection options used for connecting to the database.
     #[must_use]
     pub fn connection_string(&self) -> PgConnectOptions {
         PgConnectOptions::new()

@@ -1,16 +1,17 @@
 use std::{
     collections::{HashSet, VecDeque},
+    error::Error,
     fmt,
     sync::Arc,
 };
 
-use error_stack::{Context, Result, ResultExt};
+use error_stack::{Report, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 use tokio::{sync::Mutex, task};
 use tracing::Span;
 
-use crate::{countdown::COUNTDOWN_BASE_URL, CONCURRENT_REQUESTS, PAGE_ITERATION_INTERVAL};
+use crate::{CONCURRENT_REQUESTS, PAGE_ITERATION_INTERVAL, countdown::COUNTDOWN_BASE_URL};
 
 use super::{Category, Product};
 
@@ -212,7 +213,7 @@ impl fmt::Display for ProductRetrievalError {
     }
 }
 
-impl Context for ProductRetrievalError {}
+impl Error for ProductRetrievalError {}
 
 /// Retrieves all the products for a given [`Category`].
 ///
@@ -225,7 +226,7 @@ impl Context for ProductRetrievalError {}
 pub async fn get_all_products(
     client: &reqwest::Client,
     categories: Vec<Category>,
-) -> Result<HashSet<Product>, ProductRetrievalError> {
+) -> Result<HashSet<Product>, Report<ProductRetrievalError>> {
     let tasks: Arc<Mutex<VecDeque<PageRequestTask>>> = Arc::new(Mutex::new(
         categories
             .into_iter()
@@ -252,12 +253,12 @@ pub async fn get_all_products(
     }))
     .await
     .into_iter()
-    .collect::<std::result::Result<Vec<_>, _>>()
+    .collect::<Result<Vec<_>, _>>()
     .change_context(ProductRetrievalError::Join)?;
 
     let product_results = task_results
         .into_iter()
-        .collect::<std::result::Result<Vec<_>, _>>()
+        .collect::<Result<Vec<_>, _>>()
         .change_context(ProductRetrievalError::ProductRetrieval)?
         .into_iter()
         .flatten()

@@ -1,6 +1,4 @@
-use std::fmt;
-
-use error_stack::Context;
+use std::{error::Error, fmt};
 
 #[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
@@ -63,4 +61,4 @@ impl fmt::Display for ApplicationError {
     }
 }
 
-impl Context for ApplicationError {}
+impl Error for ApplicationError {}

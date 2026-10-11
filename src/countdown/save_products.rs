@@ -1,4 +1,4 @@
-use error_stack::{Result, ResultExt};
+use error_stack::{Report, ResultExt};
 use sqlx::PgPool;
 use tracing::debug;
 
@@ -14,7 +14,10 @@ use super::Product;
 #[tracing::instrument(name = "save products", level = "debug", skip_all, fields(
 	product_count = %products.len()
 ))]
-pub async fn save_products(pool: &PgPool, products: Vec<Product>) -> Result<(), ApplicationError> {
+pub async fn save_products(
+    pool: &PgPool,
+    products: Vec<Product>,
+) -> Result<(), Report<ApplicationError>> {
     let mut names = Vec::with_capacity(products.len());
     let mut barcodes = Vec::with_capacity(products.len());
     let mut skus = Vec::with_capacity(products.len());

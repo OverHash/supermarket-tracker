@@ -1,5 +1,5 @@
 use dotenvy::dotenv;
-use error_stack::{Result, ResultExt};
+use error_stack::{Report, ResultExt};
 use sqlx::postgres::PgPoolOptions;
 
 use supermarket_tracker::{
@@ -13,7 +13,7 @@ use supermarket_tracker::{
 };
 
 #[tokio::main]
-async fn main() -> Result<(), ApplicationError> {
+async fn main() -> Result<(), Report<ApplicationError>> {
     let subscriber = get_tracing_subscriber(std::io::stdout);
     init_subscriber(subscriber);
 

@@ -1,3 +1,13 @@
 - name: Use checked-in SQLx query metadata
   shell: bash
   run: echo "SQLX_OFFLINE=true" >> "$GITHUB_ENV"
+
+- name: Update Rust in cross-compilation container
+  if: ${{ matrix.container }}
+  shell: bash
+  run: |
+    rustup toolchain install stable \
+      --profile minimal \
+      --target aarch64-pc-windows-msvc \
+      --component llvm-tools-preview
+    rustup default stable

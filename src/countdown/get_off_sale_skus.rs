@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use error_stack::{Result, ResultExt};
+use error_stack::{Report, ResultExt};
 use sqlx::PgPool;
 
 use crate::error::ApplicationError;
@@ -15,7 +15,7 @@ use super::Product;
 pub async fn get_off_sale_skus(
     pool: &PgPool,
     fetched_products: &[Product],
-) -> Result<Vec<String>, ApplicationError> {
+) -> Result<Vec<String>, Report<ApplicationError>> {
     // retrieve all skus we have retrieved in the history of the database
     let stored_skus: HashSet<_> = sqlx::query!(
         r#"

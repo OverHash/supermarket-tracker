@@ -1,4 +1,3 @@
-use error_stack::Result;
 use sqlx::PgPool;
 
 /// Saves a Countdown store into the database.

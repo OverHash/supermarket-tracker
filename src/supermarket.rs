@@ -1,6 +1,6 @@
-use std::fmt;
+use std::{error::Error, fmt};
 
-use error_stack::{Context, Report, ResultExt};
+use error_stack::{Report, ResultExt};
 
 pub enum Supermarket {
     Countdown,
@@ -56,7 +56,7 @@ impl fmt::Display for SupermarketRetrievalError {
     }
 }
 
-impl Context for SupermarketRetrievalError {}
+impl Error for SupermarketRetrievalError {}
 
 /// Attempts to retrieve the type of supermarket the user specified with the `--supermarket` option.
 ///
@@ -81,7 +81,7 @@ pub fn get_supermarket_type(
         .ok_or(SupermarketRetrievalError::NotPassedSupermarket {})?;
     let parsed_supermarket_type = Supermarket::try_from(supermarket_type.clone())
         .map_err(|e| SupermarketRetrievalError::ParseError { supermarket: e.0 })
-        .attach_printable_lazy(|| {
+        .attach_with(|| {
             format!(
                 "suggestion: valid supermarket types are {}",
                 Supermarket::get_allowed_types()

@@ -1,6 +1,7 @@
 use core::fmt;
+use std::error::Error;
 
-use error_stack::{Context, Result, ResultExt};
+use error_stack::{Report, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
 
@@ -47,7 +48,7 @@ impl fmt::Display for GetCategoriesError {
     }
 }
 
-impl Context for GetCategoriesError {}
+impl Error for GetCategoriesError {}
 
 /// Retrieves all the categories in the store.
 ///
@@ -57,7 +58,7 @@ impl Context for GetCategoriesError {}
 pub async fn get_categories(
     client: &Client,
     base_url: &str,
-) -> Result<Vec<Category>, GetCategoriesError> {
+) -> Result<Vec<Category>, Report<GetCategoriesError>> {
     let res: ShellResponse = client
         .get(format!("{base_url}/shell"))
         .send()
@@ -73,13 +74,13 @@ pub async fn get_categories(
         .into_iter()
         .find(|nav| &nav.name == "Browse")
         .ok_or(GetCategoriesError::DecodeError)
-        .attach_printable("Failed to find Browse menu")?;
+        .attach("Failed to find Browse menu")?;
 
     // read res.mainNavs[1].navigationItems[0]
     let nav_items = browse_page
         .navigation_items
         .ok_or(GetCategoriesError::DecodeError)
-        .attach_printable("Failed to read navigation items")?
+        .attach("Failed to read navigation items")?
         .into_iter()
         .flat_map(|nav_item| nav_item.items)
         .collect();
