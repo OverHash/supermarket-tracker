@@ -42,6 +42,15 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
 	"env-filter",
 ] }
 
+[dev-dependencies]
+axum = { version = "0.8.9", default-features = false, features = [
+	"http1",
+	"json",
+	"query",
+	"tokio",
+] }
+tokio = { version = "1.53.2", features = ["test-util"] }
+
 [lints.clippy]
 cargo = "deny"
 pedantic = "deny"

@@ -28,6 +28,17 @@ Options:
 
 Core application is written in Rust. Read more in the [ARCHITECTURE.md](./ARCHITECTURE.md) document.
 
+### Scraper tests
+
+```sh
+cargo test
+```
+
+Scheduler tests use controlled in-memory responses and Tokio's paused clock to
+check concurrency, cooldowns, and cancellation without wall-clock waits. The HTTP
+pagination test runs against a per-test local server. Neither requires a database
+or real supermarket requests; Cargo defaults to the committed SQLx query metadata.
+
 ### Using with Docker
 
 [Docker](https://www.docker.com/) can be used to host the Postgres database, and perform all the initial work of setup.

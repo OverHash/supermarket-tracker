@@ -1,19 +1,11 @@
-use std::{
-    collections::{HashSet, VecDeque},
-    error::Error,
-    fmt,
-    sync::Arc,
-};
+use std::{collections::HashSet, error::Error, fmt};
 
 use error_stack::{Report, ResultExt};
 use reqwest::Client;
 use serde::Deserialize;
-use tokio::{sync::Mutex, task};
 use tracing::Span;
 
-use crate::{CONCURRENT_REQUESTS, PAGE_ITERATION_INTERVAL, countdown::COUNTDOWN_BASE_URL};
-
-use super::{Category, Product};
+use super::{Category, Product, scheduler};
 
 /// Describes the response returned by the /products endpoint.
 #[derive(Deserialize)]
@@ -160,54 +152,14 @@ pub async fn get_products(
     })
 }
 
-type AddTask = Option<Box<dyn FnOnce(&GetProductResponse) -> Vec<PageRequestTask> + Send + Sync>>;
-
-struct PageRequestTask {
-    category: Category,
-    page: i64,
-    add_tasks: AddTask,
-}
-
-async fn perform_task(
-    client: Client,
-    tasks: Arc<Mutex<VecDeque<PageRequestTask>>>,
-) -> Result<HashSet<Product>, reqwest::Error> {
-    let mut total_products = HashSet::new();
-
-    loop {
-        let task = tasks.lock().await.pop_front();
-        let Some(task) = task else {
-            break;
-        };
-
-        let res = get_products(&client, COUNTDOWN_BASE_URL, task.page, &task.category).await?;
-
-        // handle the add_tasks callback if it existed
-        if let Some(callback) = task.add_tasks {
-            let new_tasks = callback(&res);
-            tasks.lock().await.extend(new_tasks);
-        }
-
-        total_products.extend(res.products);
-
-        // give the API some time to rest
-        // so we don't get rate limited
-        tokio::time::sleep(PAGE_ITERATION_INTERVAL).await;
-    }
-
-    Ok(total_products)
-}
-
 #[derive(Debug)]
 pub enum ProductRetrievalError {
-    Join,
     ProductRetrieval,
 }
 
 impl fmt::Display for ProductRetrievalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ProductRetrievalError::Join => write!(f, "Failed to join all products after querying"),
             ProductRetrievalError::ProductRetrieval => write!(f, "Failed to retrieve a product"),
         }
     }
@@ -217,52 +169,27 @@ impl Error for ProductRetrievalError {}
 
 /// Retrieves all the products for a given [`Category`].
 ///
-/// Yields for [`PAGE_ITERATION_INTERVAL`] between requests, to prevent rate-limiting.
+/// Uses the supplied API base URL, like [`get_products`].
 ///
-/// Runs [`CONCURRENT_REQUESTS`] requests at once.
+/// Each concurrency slot waits for [`crate::PAGE_ITERATION_INTERVAL`] after a
+/// response before starting another request, to prevent rate-limiting.
+///
+/// Runs up to [`crate::CONCURRENT_REQUESTS`] requests at once.
+///
+/// # Errors
+///
+/// Returns an error if an HTTP request fails.
 #[tracing::instrument(name = "get_all_products", skip_all, fields(
 	num_categories = %categories.len()
 ))]
 pub async fn get_all_products(
     client: &reqwest::Client,
+    base_url: &str,
     categories: Vec<Category>,
 ) -> Result<HashSet<Product>, Report<ProductRetrievalError>> {
-    let tasks: Arc<Mutex<VecDeque<PageRequestTask>>> = Arc::new(Mutex::new(
-        categories
-            .into_iter()
-            .map(|category| PageRequestTask {
-                category: category.clone(),
-                page: 1,
-                add_tasks: Some(Box::new(move |products_response| {
-                    (2..=products_response.total_pages)
-                        .map(|page| PageRequestTask {
-                            category: category.clone(),
-                            page,
-                            add_tasks: None,
-                        })
-                        .collect()
-                })),
-            })
-            .collect(),
-    ));
-
-    let task_results = futures::future::join_all((0..CONCURRENT_REQUESTS).map(|_| {
-        let new_client = client.clone();
-        let new_tasks = tasks.clone();
-        task::spawn(async move { perform_task(new_client, new_tasks).await })
-    }))
+    scheduler::collect_products(categories, |category, page| async move {
+        get_products(client, base_url, page, &category).await
+    })
     .await
-    .into_iter()
-    .collect::<Result<Vec<_>, _>>()
-    .change_context(ProductRetrievalError::Join)?;
-
-    let product_results = task_results
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
-        .change_context(ProductRetrievalError::ProductRetrieval)?
-        .into_iter()
-        .flatten()
-        .collect();
-
-    Ok(product_results)
+    .change_context(ProductRetrievalError::ProductRetrieval)
 }
