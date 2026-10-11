@@ -5,7 +5,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use tracing::Span;
 
-use super::{Category, Product, scheduler};
+use super::{Category, Product, pagination};
 
 /// Describes the response returned by the /products endpoint.
 #[derive(Deserialize)]
@@ -167,14 +167,12 @@ impl fmt::Display for ProductRetrievalError {
 
 impl Error for ProductRetrievalError {}
 
-/// Retrieves all the products for a given [`Category`].
+/// Retrieves all products across the supplied categories.
 ///
 /// Uses the supplied API base URL, like [`get_products`].
 ///
-/// Each concurrency slot waits for [`crate::PAGE_ITERATION_INTERVAL`] after a
-/// response before starting another request, to prevent rate-limiting.
-///
-/// Runs up to [`crate::CONCURRENT_REQUESTS`] requests at once.
+/// Finishes each category's advertised pages before starting the next category.
+/// Only one request is in flight, with no delay after a successful response.
 ///
 /// # Errors
 ///
@@ -187,7 +185,7 @@ pub async fn get_all_products(
     base_url: &str,
     categories: Vec<Category>,
 ) -> Result<HashSet<Product>, Report<ProductRetrievalError>> {
-    scheduler::collect_products(categories, |category, page| async move {
+    pagination::collect_products(categories, |category, page| async move {
         get_products(client, base_url, page, &category).await
     })
     .await

@@ -2,12 +2,12 @@ mod category;
 mod get_categories;
 mod get_off_sale_skus;
 mod get_products;
+mod pagination;
 mod product;
 mod run;
 mod save_prices;
 mod save_products;
 mod save_store;
-mod scheduler;
 mod set_fulfillment_method;
 mod set_location;
 

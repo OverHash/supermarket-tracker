@@ -8,8 +8,8 @@ use tokio::time::timeout;
 
 use support::{ProductRequest, TestApi};
 
-// Bounds failures in real HTTP I/O; scheduler tests use controlled futures and
-// paused time instead of waiting for missing requests to time out.
+// Bounds failures in real HTTP I/O; pagination unit tests use controlled futures
+// instead of waiting for missing requests to time out.
 const SCRAPE_DEADLINE: Duration = Duration::from_secs(10);
 
 fn client() -> Client {

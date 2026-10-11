@@ -17,7 +17,6 @@ path = "src/main.rs"
 [dependencies]
 dotenvy = "0.15.7"
 error-stack = "0.8.0"
-futures = "0.3.34"
 reqwest = { version = "0.13.5", default-features = false, features = [
 	"gzip",
 	"json",
@@ -49,7 +48,6 @@ axum = { version = "0.8.9", default-features = false, features = [
 	"query",
 	"tokio",
 ] }
-tokio = { version = "1.53.2", features = ["test-util"] }
 
 [lints.clippy]
 cargo = "deny"
