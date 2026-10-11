@@ -1,5 +1,3 @@
-use std::fs;
-
 use error_stack::{Report, ResultExt};
 use sqlx::PgPool;
 
@@ -85,11 +83,15 @@ pub async fn run(connection: PgPool, should_insert: bool) -> Result<(), Report<A
         tracing::debug!("{:?} products were found", products.len());
 
         // cache the result
-        fs::write(
-            CACHE_PATH,
-            serde_json::to_string_pretty(&products).change_context(ApplicationError::CacheError)?,
-        )
-        .change_context(ApplicationError::CacheError)?;
+        let products = crate::telemetry::spawn_blocking_with_tracing(move || {
+            let json = serde_json::to_string_pretty(&products)
+                .change_context(ApplicationError::CacheError)?;
+            std::fs::write(CACHE_PATH, json).change_context(ApplicationError::CacheError)?;
+
+            Ok::<_, Report<ApplicationError>>(products)
+        })
+        .await
+        .change_context(ApplicationError::CacheError)??;
 
         if should_insert {
             // create the products if not existing before
